@@ -104,6 +104,8 @@ Queue_t empty_frames;
 char* terminal_input_buffers[NUM_TERMINALS];
 char* terminal_output_buffers[NUM_TERMINALS];
 
+bool can_write_to_terminal[NUM_TERMINALS];
+
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];

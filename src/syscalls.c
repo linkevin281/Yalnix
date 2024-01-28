@@ -118,9 +118,10 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     /**
      * If address buf is not in kernel memory:
      *      Copy the contents of buf into kernel memory
+     * Set can_write_to_terminal to false for this terminal
      * For each chunk of TERMINAL_MAX_LINE size in buf:
      *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
-     * Add to back of queue of waiting processes
+     *      wait for can_write_to_terminal to be true for this terminal
     */
 }
 

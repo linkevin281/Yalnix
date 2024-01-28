@@ -90,6 +90,12 @@ int Y_Brk(void *addr)
 
 int Y_Delay(int clock_ticks)
 {
+    /**
+     * Get PCB of current process from kernel
+     * Set ticks_delayed of this PCB to clock_ticks
+     * Add this PCB to delayqueue
+     * [further logic needs to be handled by a function that's called by our OS upon receiving TRAP_CLOCK]
+    */
 }
 
 int Y_Ttyread(int tty_id, void *buf, int len)

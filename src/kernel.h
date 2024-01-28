@@ -37,6 +37,7 @@ typedef struct pcb {
     int pid;
     int p_pid;
     int exit_status;
+    int ticks_delayed;
     State_t state;
     Queue_t *children;
     Queue_t *zombies;

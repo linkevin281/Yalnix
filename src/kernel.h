@@ -19,8 +19,9 @@ typedef enum State {
     READY          = 1,
     LOCK_BLOCKED   = 2,
     CVAR_BLOCKED   = 3,
-    DELAYED        = 4,
-    ZOMBIE         = 5,
+    PIPE_BLOCKED   = 4,
+    DELAYED        = 5,
+    ZOMBIE         = 6,
 } State_t;
 
 typedef struct pcb {

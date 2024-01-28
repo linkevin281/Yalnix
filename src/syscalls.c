@@ -102,42 +102,112 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
 
 int Y_Pipeinit(int *pipe_idp)
 {
+    /**
+     * 1. Check if pipe_idp is valid, if not, ERROR
+     * 2. Get first available pipe_id from free pipe queue
+     * 3. Malloc pipe according to id, initialize read and write pos to 0, malloc buffer
+     * 4. Fill kernel pipe array with pipe (maybe taken care of already by kernel?)
+     * 5. Return 0
+    */
 }
 
 int Y_Piperead(int pipe_id, void *buf, int len)
 {
+    /**
+     * 1. Check if pipe_id is valid, if not, ERROR
+     * 2. If len is greater than read-write pos, ERROR
+     * 3. Read in <=len bytes from read to min(read+len, read-write) into buf
+     * 4. Increment read_pos by len
+     * 5. Return len
+    */
 }
 
 int Y_Pipewrite(int pipe_id, void *buf, int len)
 {
+    /**
+     * 1. Check if pipe_id is valid, if not, ERROR
+     * 2. If writing buffer from write_pos to end of buffer is less than len
+     *     a. Copy from read-write pos to beginning of buffer
+     *     b. reset read and write pos to 0 and len cur_buffer
+     * 3. If writing buffer from write_pos still exceeds, ERROR
+     * 4. Copy len bytes from buf to cur_buffer at write_pos
+     * 5. Increment write_pos by len
+     * 6. Return len
+     *     
+    */
 }
 
 int Y_LockInit(int *lock_idp)
 {
+    /**
+     * 1. Check if lock_idp is valid, if not, ERROR
+     * 2. Get first available lock_id from free lock queue
+     * 3. Malloc lock according to id, initialize waiting queue
+     * 4. Fill kernel lock array with lock (maybe taken care of already by kernel?)
+     * 5. Return 0
+    */
 }
 
 int Y_Acquire(int lock_id)
 {
+    /**
+     * 1. Check if lock_id is valid, if not, ERROR
+     * 2. If lock is free, acquire it, add to held queue
+     * 3. If lock is held, add to waiting queue of that lock
+     * 4. Add pid to kernel waiting queue, switch to next ready process
+     * 5. Return 0
+    */
 }
 
 int Y_Release(int lock_id)
 {
+    /**
+     * 1. Check if lock_id is valid, if not, ERROR
+     * 2. If lock not held by this process, ERROR
+     * 3. If lock is held by this process, release it, add to free queue
+     * 4. unalloc memory
+     * 5. Return 0
+    */
 }
 
 int Y_CvarInit(int *cvar_idp)
 {
+    /**
+     * 1. Check if cvar_idp is valid, if not, ERROR
+     * 2. Get first available cvar_id from free cvar queue
+     * 3. Malloc cvar according to id, initialize waiting queue
+     * 4. Fill kernel cvar array with cvar (maybe taken care of already)
+     * 5. Return 0
+    */
 }
 
 int Y_CvarSignal(int cvar_id)
 {
+    /**
+     * 1. Check if cvar_id is valid, if not, ERROR
+     * 2. Move one process from waiting queue of cvar to ready queue of kernel
+     * 3. Return 0
+    */
 }
 
 int Y_CvarBroadcast(int cvar_id)
 {
+    /**
+     * 1. Check if cvar_id is valid, if not, ERROR
+     * 2. Move all processes from waiting queue of cvar to ready queue of kernel
+     * 3. Return 0
+    */
 }
 
 int Y_Cvarwait(int cvar_id, int lock_id)
 {
+    /**
+     * 1. Check if lock_id, cvar_id is valid, if not, ERROR
+     * 2. Try to release the lock, if it fails, ERROR, add to free queue if it succeeds
+     * 3. Add this PID to the waiting queue of the cvar
+     * 4. Switch to next ready process, add this process to waiting queue of kernel
+     * 5. Reacquire the lock, return 0 and return to userland
+    */
 }
 
 int Y_Reclaim(int id)

@@ -43,7 +43,15 @@ int Y_Exec(char *filename, char *argv[])
 
 int Y_Exit(int status)
 {
-    
+    /**
+     * 1. Return all of USERLAND to the free_frames queue
+     * 2. Return all of KERNAL_STACK to the free_frames queue
+     * 3. Add this process to the zombie queue of parent if not null (dead)
+     * 4. Save exit status in PCB
+     * 5. Loop thru children and set their parent (cur) to null
+     * 6. Wake parent if needed? 
+     * 7. if initial process, HALT
+    */
 }
 
 int Y_Wait(int *status)

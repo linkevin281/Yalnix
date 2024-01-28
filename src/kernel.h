@@ -96,7 +96,5 @@ int frame_count = 0;
 
 int brk;
 
-
-
 pcb *current_process;
 

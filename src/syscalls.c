@@ -49,13 +49,19 @@ int Y_Exit(int status)
      * 3. Add this process to the zombie queue of parent if not null (dead)
      * 4. Save exit status in PCB
      * 5. Loop thru children and set their parent (cur) to null
-     * 6. Wake parent if needed? 
+     * 6. Wake parent, move from waiting to ready queue in kernal
      * 7. if initial process, HALT
     */
 }
 
 int Y_Wait(int *status)
 {
+    /**
+     * 1. Loop through children, find one that is dead. If no children, ERROR, else
+     *        add to waiting queue and load new ready.
+     * 2. Collect exit status from PCB, save to status and PID 
+     * 3. return PID.
+    */
 }
 
 int Y_Getpid()

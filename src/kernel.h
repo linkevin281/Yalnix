@@ -52,6 +52,8 @@ typedef struct Cvar {
 #define PIPE_SIZE 1024
 
 typedef struct Pipe {
+    pcb_t* curr_reader;
+    pcb_t* curr_writer;
     int read_pos;
     int write_pos;
     char buffer[PIPE_SIZE];

@@ -81,6 +81,7 @@ int orig_kernel_brk_page = 0;
 
 /* Queues to help indicate which indicies of their are empty. */
 Queue_t ready_queue;
+Queue_t waiting_queue;
 Queue_t delay_queue;
 Queue_t empty_locks;
 Queue_t empty_cvars;

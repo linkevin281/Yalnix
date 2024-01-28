@@ -7,16 +7,43 @@
  *
  */
 
+
+// input: pcb
 int Y_Fork()
 {
+ /**
+  * Create new PCB for child process, with input PCB as its parent and user context copied in from input PCB
+  * Update parent PCB to say that this new PCB is its child
+  * Initialize a new page table for the child process
+  * For each page in the page table of the parent process:
+  *     If page is valid:
+  *         Grab a free frame from empty_frames
+  *         allocate this free frame to the page
+  *         Copy contents of the page in the old table to the child
+  * 
+ */
+
 }
 
 int Y_Exec(char *filename, char *argv[])
 {
+    /**
+     * Move args into kernel heap, so they aren't lost
+     * For each page in our page table:
+     *      Add the corresponding frame back to the queue of free frames
+     * Move code into memory by doing the following (likely in another function):
+     *  While there are bytes to be read from the file:
+     *      Get first available frame from free_frames:
+     *          Increment brk by a page
+     *          Map next page in userland address space to this frame in the userland page table
+     *          Read a page-sized chunk of bytes from the file, into this frame
+     * 
+    */
 }
 
 int Y_Exit(int status)
 {
+    
 }
 
 int Y_Wait(int *status)

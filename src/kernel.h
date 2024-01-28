@@ -9,10 +9,11 @@
 
 
 /* Exit Codes */
-#define KILL                   -9
-#define ILLEGAL_MEMORY         -131 
-#define ILLEGAL_INSTRUCTION    -132 // or 4?
-
+#define KILL                        -9
+#define GENERAL_EXCEPTION           -66
+#define ILLEGAL_MEMORY              -131 
+#define ILLEGAL_INSTRUCTION         -132 // or 4?
+#define FLOATING_POINT_EXCEPTION    -136
 
 #include <hardware.h>
 

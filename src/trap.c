@@ -45,12 +45,17 @@ void TrapMemory(UserContext *user_context)
      * 1. If invalid address (not in region 0 or 1), exit ILLEGAL_MEMORY
      * 2. If invalid permissions code, exit ILLEGAL_MEMORY
      * 3. If address not mapped code, we need to map it because the user thinks it exists
-     *    a. Grow stack to this address if it is in region 0
+     *    a. Grow stack to this address it doesnt pass heap
+     *    b. But I think if it passes the heap, it probably was a valid address?
     */
 }
 
 void TrapMath(UserContext *user_context)
 {
+    /**
+     * 1. Kill cur process with Y_Exit(FLOATING_POINT_EXCEPTION)
+     * 
+    */   
 }
 
 void TrapTTYReceive(UserContext *user_context)
@@ -63,8 +68,14 @@ void TrapTTYTransmit(UserContext *user_context)
 
 void TrapDisk(UserContext *user_context)
 {
+    /**
+     * 1. NOT USED FOR NOW
+    */
 }
 
 void TrapElse(UserContext *user_context)
 {
+    /**
+     * 1. Kill cur process with Y_Exit(GENERAL_EXCEPTION)
+    */
 }

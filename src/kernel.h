@@ -3,41 +3,50 @@
 #define MAX_USER_PAGETABLE 1024
 #define MAX_KERNEL_STACK 4096
 
-
-typedef struct _Node {
+typedef struct Node {
     void *data;
-    Node *next;
-    Node *prev;
-} Node;
+    Node_t *next;
+    Node_t *prev;
+} Node_t;
 
-typedef struct _Queue {
-    Node *head;
-    Node *tail;
-} Queue;
+typedef struct Queue {
+    Node_t *head;
+    Node_t *tail;
+} Queue_t;
 
-typedef struct _pcb {
+typedef enum State {
+    RUNNING        = 0,
+    READY          = 1,
+    LOCK_BLOCKED   = 2,
+    CVAR_BLOCKED   = 3,
+    DELAYED        = 4,
+    ZOMBIE         = 5,
+} State_t;
+
+typedef struct pcb {
     int pid;
     int p_pid;
-    Queue *children;
-    Queue *zombies;
+    State_t state;
+    Queue_t *children;
+    Queue_t *zombies;
 
     UserContext *user_c;
     KernelContext *kernel_c;
 
     void *kernel_stack_top;
-    pte *userland_pt[MAX_USER_PAGETABLE];
-    pte *kernel_pt[MAX_KERNEL_STACK/PAGESIZE];
-} pcb;
+    pte_t *userland_pt[MAX_USER_PAGETABLE];
+    pte_t *kernel_pt[MAX_KERNEL_STACK/PAGESIZE];
+} pcb_t;
 
-typedef struct _Lock {
+typedef struct Lock {
     int owner_pid;
     Queue *waiting;
-} Lock;
+} Lock_t;
 
-typedef struct _Cvar {
+typedef struct Cvar {
     int owner_pid;
     Queue *waiting;
-} Cvar;
+} Cvar_t;
 
 #define PIPE_SIZE 1024
 
@@ -46,7 +55,7 @@ typedef struct Pipe {
     int write_pos;
     char buffer[PIPE_SIZE];
     Queue *readers;
-} Pipe;
+} Pipe_t;
 
 #define MAX_LOCKS 100
 #define MAX_CVARS 100
@@ -57,17 +66,17 @@ int first_kernel_text_page = 0;
 int first_kernel_data_page = 0;
 int orig_kernel_brk_page = 0;
 
-Queue ready_queue;
-Queue delay_queue;
-Queue empty_locks;
-Queue empty_cvars;
-Queue empty_pipes;
-Queue empty_frames;
+Queue_t ready_queue;
+Queue_t delay_queue;
+Queue_t empty_locks;
+Queue_t empty_cvars;
+Queue_t empty_pipes;
+Queue_t empty_frames;
 int frame_count = 0;
 
-Pipe pipes[MAX_PIPES];
-Lock locks[MAX_LOCKS];
-Cvar cvars[MAX_CVARS];
+Pipe_t pipes[MAX_PIPES];
+Lock_t locks[MAX_LOCKS];
+Cvar_t cvars[MAX_CVARS];
 
 int brk;
 

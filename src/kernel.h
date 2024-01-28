@@ -44,6 +44,7 @@ typedef struct pcb {
     UserContext *user_c;
     KernelContext *kernel_c;
 
+    int brk;
     void *kernel_stack_top;
     pte_t *userland_pt[MAX_USER_PAGETABLE];
     pte_t *kernel_pt[MAX_KERNEL_STACK/PAGESIZE];

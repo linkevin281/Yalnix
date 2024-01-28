@@ -51,11 +51,13 @@ typedef struct pcb {
 } pcb_t;
 
 typedef struct Lock {
+    int id;           // index in locks array
     int owner_pid;
     Queue *waiting;
 } Lock_t;
 
 typedef struct Cvar {
+    int id;           // index in cvars array
     int owner_pid;
     Queue *waiting;
 } Cvar_t;
@@ -63,11 +65,12 @@ typedef struct Cvar {
 #define PIPE_SIZE 1024
 
 typedef struct Pipe {
+    int id;                    // index in pipes array
     pcb_t* curr_reader;
     pcb_t* curr_writer;
     int read_pos;
     int write_pos;
-    char buffer[PIPE_SIZE];
+    char buffer[PIPE_SIZE]; 
     Queue *readers;
 } Pipe_t;
 

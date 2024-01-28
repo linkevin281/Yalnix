@@ -142,4 +142,12 @@ int Y_Cvarwait(int cvar_id, int lock_id)
 
 int Y_Reclaim(int id)
 {
+    /**
+     * 1. Check if id is valid, if not, ERROR
+     * 2. If id is a pipe, free all frames in the pipe's buffer
+     * 3. If id is a lock, free the lock
+     * 4. If id is a cvar, free the cvar
+     * 5. Add id to free ____ IDs queue
+     * 6. If anythign went wrong, ERROR or return 0 on success
+    */
 }

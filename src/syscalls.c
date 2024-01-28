@@ -100,10 +100,28 @@ int Y_Delay(int clock_ticks)
 
 int Y_Ttyread(int tty_id, void *buf, int len)
 {
+    /**
+     * We assume that first, TRAP_TTY_RECEIVE fires, and one of our functions reads user input into the relevant terminal_input_buffer.
+     * Allocate string str on kernel heap
+     * while len == TERMINAL_MAX_LINE:
+     *      read buf into str
+     *      wait for more input
+     * for each byte up to len:
+     *      read that byte into str
+     * Create a new PCB for the terminal input, add it to the ready queue
+     *      
+    */
 }
 
 int Y_Ttywrite(int tty_id, void *buf, int len)
 {
+    /**
+     * If address buf is not in kernel memory:
+     *      Copy the contents of buf into kernel memory
+     * For each chunk of TERMINAL_MAX_LINE size in buf:
+     *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
+     * Add to back of queue of waiting processes
+    */
 }
 
 int Y_Pipeinit(int *pipe_idp)

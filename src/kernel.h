@@ -93,6 +93,10 @@ Queue_t empty_cvars;
 Queue_t empty_pipes;
 Queue_t empty_frames;
 
+// arrays of strings for storing input and output for various terminals
+char* terminal_input_buffers[NUM_TERMINALS];
+char* terminal_output_buffers[NUM_TERMINALS];
+
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];

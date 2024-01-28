@@ -1,3 +1,12 @@
+/**
+ * Kevin Lin and Carter Sullivan
+ * Yalnix
+ * CS58 - Operating Systems 24W
+ *
+ * kernel.h
+ * 
+ */
+
 #include <hardware.h>
 
 #define MAX_USER_PAGETABLE 1024
@@ -69,17 +78,19 @@ int first_kernel_text_page = 0;
 int first_kernel_data_page = 0;
 int orig_kernel_brk_page = 0;
 
+/* Queues to help indicate which indicies of their are empty. */
 Queue_t ready_queue;
 Queue_t delay_queue;
 Queue_t empty_locks;
 Queue_t empty_cvars;
 Queue_t empty_pipes;
 Queue_t empty_frames;
-int frame_count = 0;
 
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
+
+int frame_count = 0;
 
 int brk;
 

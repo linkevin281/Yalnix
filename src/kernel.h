@@ -7,6 +7,13 @@
  * 
  */
 
+
+/* Exit Codes */
+#define KILL                   -9
+#define ILLEGAL_MEMORY         -131 
+#define ILLEGAL_INSTRUCTION    -132 // or 4?
+
+
 #include <hardware.h>
 
 #define MAX_USER_PAGETABLE 1024
@@ -87,7 +94,7 @@ int orig_kernel_brk_page = 0;
 /* Queues to help indicate which indicies of their are empty. */
 Queue_t ready_queue;
 Queue_t waiting_queue;
-Queue_t delay_queue;
+Queue_t delay_queue; // This will be sorted. 
 Queue_t empty_locks;
 Queue_t empty_cvars;
 Queue_t empty_pipes;
@@ -101,9 +108,13 @@ Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
 
+void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
+
 int frame_count = 0;
 
 int brk;
 
 pcb *current_process;
 
+// For delay and traps
+int clock_ticks = 0;

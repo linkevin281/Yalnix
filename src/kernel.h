@@ -36,6 +36,7 @@ typedef enum State {
 typedef struct pcb {
     int pid;
     int p_pid;
+    int exit_status;
     State_t state;
     Queue_t *children;
     Queue_t *zombies;

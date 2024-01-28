@@ -67,19 +67,23 @@ int Y_Wait(int *status)
 int Y_Getpid()
 {
     /**
-     * 1. Return PID of current process
+     * Using curr_process variable in kernel, get the pcb of the current process
+     * Return the pid of the current process from this pcb
     */
 }
 
 int Y_Brk(void *addr)
 {
     /**
-     * 1. Check if brk exceeds stack pointer, if so, ERROR
+     * 1. Check if addr exceeds stack pointer, if so, ERROR
+     * 2. Round addr to the next multiple of PAGESIZE bytes
      * 2. If addr is less than current brk, free all frames from addr to brk
-     * 3. If addr is greater than current brk, allocate frames from brk to addr (inclusive)
+     * 3. If addr is greater than current brk, allocate frames from brk to addr (inclusive) by doing the following:
+     *      0. For each frame we need:
      *      a. If no more frames, ERROR
-     *      b. If addr is greater than USER_HEAP_MAX, ERROR
-     *      c. Add frames to page table
+            b. Get first available frame from free_frames
+     *          Increment brk by a page
+     *          Map next page we need to this frame in the userland page table
      * 4. Set brk to addr
     */
 }

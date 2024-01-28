@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "~/yalnix_framework"
+                "~/yalnix_framework",
+                "/thayerfs/courses/24winter/cosc058/workspace/yalnix_framework/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

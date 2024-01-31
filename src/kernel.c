@@ -134,8 +134,12 @@ KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used);  
 void KernelStart(char *cmd_args[])
 {
     /**
-     * 1. Initialize all queues()
+     * 1. Initialize PT0
      * 2. Initialize all trap vectors()
+     * 3. Write page table base and limit to registers
+     * 4. Enable vMEM
+     * 5. Initialize all queues()
+     * 6. Load program defined in ARGS into memory
      *
      */
 }

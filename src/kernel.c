@@ -164,9 +164,9 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
      * - KCCopy will copy kc_in into the new process's pcb
      *
      * 1. Copy KC into the new process's pcb
-     * 2. Copy kernel PT into the new process's pcb
+     * 2. Copy kernel stack PT into the new process's pcb
      * 3. Flush the TLB
-     * 4. Return the current process's kernel context
+     * 4. Return the new process's kernel context
      *
      */
 }

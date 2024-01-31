@@ -121,3 +121,10 @@ pcb *current_process;
 
 // For delay and traps
 int clock_ticks = 0;
+
+int KernelStart(char *cmd_args[]);
+KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p); // See 4.2
+KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used); // See 4.3
+int allocateFrame();
+int deallocateFrame(int frame_index);
+int runNewProcess();

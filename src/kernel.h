@@ -18,7 +18,6 @@
 #include <hardware.h>
 
 #define MAX_USER_PAGETABLE 1024
-#define MAX_KERNEL_SIZE 4096
 
 typedef struct Node {
     void *data;
@@ -55,8 +54,8 @@ typedef struct pcb {
 
     int brk;
     void *kernel_stack_top;
-    pte_t *userland_pt[MAX_USER_PAGETABLE];
-    pte_t **kernel_pt[MAX_KERNEL_SIZE/PAGESIZE]; //
+    pte_t userland_pt[MAX_USER_PAGETABLE]; 
+    pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
 } pcb_t;
 
 typedef struct Lock {
@@ -110,6 +109,8 @@ bool can_transmit_to_terminal[NUM_TERMINALS];
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
+
+pte_t kernel_pt[(VMEM_0_SIZE - KERNEL_STACK_MAXSIZE)/PAGESIZE]; //pagetable for all non-stack parts of the kernel
 
 void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
 

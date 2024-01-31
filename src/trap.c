@@ -62,16 +62,18 @@ void TrapMath(UserContext *user_context)
 void TrapTTYReceive(UserContext *user_context)
 {
     /**
-     * Allocate buf on kernel heap
-     * Execute ttyReceive to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT
-     * Call Y_ttyread to read the bytes into the relevant user's input buffer
+     * while there are more bytes to be read in:
+     *      Allocate buf of size MAXIMUM_TERMINAL_INPUT on kernel heap
+     *      Make linked list node storing the buf, add it to relevant user's terminal input buffer
+     *      Execute ttyReceive machine instruction to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT. 
+     *      
     */
 }
 
 void TrapTTYTransmit(UserContext *user_context)
 {
     /**
-     * Set can_write_to_terminal to true for the relevant terminal
+     * Set can_transmit_to_terminal to true for the relevant terminal
     */
 }
 

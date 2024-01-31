@@ -101,11 +101,11 @@ Queue_t empty_cvars;
 Queue_t empty_pipes;
 Queue_t empty_frames;
 
-// arrays of strings for storing input and output for various terminals
-char* terminal_input_buffers[NUM_TERMINALS];
-char* terminal_output_buffers[NUM_TERMINALS];
+// each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length
+Queue terminal_input_buffers[NUM_TERMINALS];
+Queue terminal_output_buffers[NUM_TERMINALS];
 
-bool can_write_to_terminal[NUM_TERMINALS];
+bool can_transmit_to_terminal[NUM_TERMINALS];
 
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];

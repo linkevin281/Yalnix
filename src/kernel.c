@@ -17,7 +17,6 @@
 #include <hardware.h>
 #include <stdbool.h>
 
-#define MAX_USER_PAGETABLE 1024
 #define MAX_KERNEL_STACK 4096
 
 typedef struct Node
@@ -59,7 +58,7 @@ typedef struct pcb
 
     int brk;
     void *kernel_stack_top;
-    pte_t *userland_pt[MAX_USER_PAGETABLE];
+    pte_t *userland_pt[MAX_PT_LEN];
     pte_t *kernel_pt[MAX_KERNEL_STACK / PAGESIZE];
 } pcb_t;
 
@@ -67,14 +66,14 @@ typedef struct Lock
 {
     int id; // index in locks array
     int owner_pid;
-    Queue *waiting;
+    Queue_t *waiting;
 } Lock_t;
 
 typedef struct Cvar
 {
     int id; // index in cvars array
     int owner_pid;
-    Queue *waiting;
+    Queue_t *waiting;
 } Cvar_t;
 
 #define PIPE_SIZE 1024
@@ -137,7 +136,7 @@ void KernelStart(char * cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt){
     /**
      * For each page in pmem_size
-     *      Add a node to empty frames queue
+     *      allocate a frame, adding it to empty_frames
      * Initialize kernel_pt
      * for each page between first_kernel_text_page and orig_kernel_brk_page
      *      add an entry to kernel_pt mapping that page to its physical address

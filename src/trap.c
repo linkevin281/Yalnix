@@ -14,7 +14,7 @@ void TrapKernel(UserContext *user_context)
     /**
      * 1. Save user context
      * 2. Switch to kernel mode
-     * 3. Call syscall handler 
+     * 3. Use interrupt_vector_table to call the relevant syscall
      * 4. Restore user context
      * 5. Return to user mode, return value in r0
     */

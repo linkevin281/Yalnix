@@ -20,6 +20,7 @@ int Y_Fork()
   *         Grab a free frame from empty_frames
   *         allocate this free frame to the page
   *         Copy contents of the page in the old table to the child
+  * Add child PCB to ready queue
   * 
  */
 
@@ -31,12 +32,8 @@ int Y_Exec(char *filename, char *argv[])
      * Move args into kernel heap, so they aren't lost
      * For each page in our page table:
      *      Add the corresponding frame back to the queue of free frames
-     * Move code into memory by doing the following (likely in another function):
-     *  While there are bytes to be read from the file:
-     *      Get first available frame from free_frames:
-     *          Increment brk by a page
-     *          Map next page in userland address space to this frame in the userland page table
-     *          Read a page-sized chunk of bytes from the file, into this frame
+     * LoadProgram with the filename
+     * Add PCB to ready queue
      * 
     */
 }
@@ -95,7 +92,7 @@ int Y_Delay(int clock_ticks)
      * Get PCB of current process from kernel
      * Set ticks_delayed of this PCB to clock_ticks
      * Add this PCB to delayqueue
-     * [further logic needs to be handled by a function that's called by our OS upon receiving TRAP_CLOCK]
+     * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
     */
 }
 
@@ -175,8 +172,8 @@ int Y_Acquire(int lock_id)
 {
     /**
      * 1. Check if lock_id is valid, if not, ERROR
-     * 2. If lock is free, acquire it, add to held queue
-     * 3. If lock is held, add to waiting queue of that lock
+     * 2. If lock is free, acquire it, mark it as acquired
+     * 3. If lock is held, add caller to waiting queue of that lock
      * 4. Add pid to kernel waiting queue, switch to next ready process
      * 5. Return 0
     */

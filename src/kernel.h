@@ -17,8 +17,6 @@
 
 #include <hardware.h>
 
-#define MAX_USER_PAGETABLE 1024
-
 typedef struct Node {
     void *data;
     Node_t *next;
@@ -43,8 +41,8 @@ typedef enum State {
 typedef struct pcb {
     int pid;
     int p_pid;
-    int exit_status;
-    int ticks_delayed;
+    int exit_status; // if exited, this contains exit status.
+    int ticks_delayed; //number of ticks until we can move this pcb out of delay queue
     State_t state;
     Queue_t *children;
     Queue_t *zombies;
@@ -54,7 +52,7 @@ typedef struct pcb {
 
     int brk;
     void *kernel_stack_top;
-    pte_t userland_pt[MAX_USER_PAGETABLE]; 
+    pte_t userland_pt[MAX_PT_LEN]; 
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
 } pcb_t;
 
@@ -91,7 +89,7 @@ int first_kernel_text_page = 0;
 int first_kernel_data_page = 0;
 int orig_kernel_brk_page = 0;
 
-/* Queues to help indicate which indicies of their are empty. */
+/* Queues to help indicate which resources are available (by index). */
 Queue_t ready_queue;
 Queue_t waiting_queue;
 Queue_t delay_queue; // This will be sorted. 
@@ -100,7 +98,7 @@ Queue_t empty_cvars;
 Queue_t empty_pipes;
 Queue_t empty_frames;
 
-// each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length
+// each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
 Queue terminal_input_buffers[NUM_TERMINALS];
 Queue terminal_output_buffers[NUM_TERMINALS];
 
@@ -112,7 +110,7 @@ Cvar_t cvars[MAX_CVARS];
 
 pte_t kernel_pt[(VMEM_0_SIZE - KERNEL_STACK_MAXSIZE)/PAGESIZE]; //pagetable for all non-stack parts of the kernel
 
-void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
+void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
 int frame_count = 0;
 

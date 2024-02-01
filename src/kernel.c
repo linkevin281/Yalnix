@@ -15,6 +15,7 @@
 #define FLOATING_POINT_EXCEPTION -136
 
 #include <hardware.h>
+#include <stdbool.h>
 
 #define MAX_USER_PAGETABLE 1024
 #define MAX_KERNEL_STACK 4096
@@ -86,7 +87,7 @@ typedef struct Pipe
     int read_pos;
     int write_pos;
     char buffer[PIPE_SIZE];
-    Queue *readers;
+    Queue_t *readers;
 } Pipe_t;
 
 #define MAX_LOCKS 100
@@ -108,8 +109,8 @@ Queue_t empty_pipes;
 Queue_t empty_frames;
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length
-Queue terminal_input_buffers[NUM_TERMINALS];
-Queue terminal_output_buffers[NUM_TERMINALS];
+Queue_t terminal_input_buffers[NUM_TERMINALS];
+Queue_t terminal_output_buffers[NUM_TERMINALS];
 
 bool can_transmit_to_terminal[NUM_TERMINALS];
 
@@ -123,7 +124,7 @@ int frame_count = 0;
 
 int brk;
 
-pcb *current_process;
+pcb_t *current_process;
 
 // For delay and traps
 int clock_ticks = 0;
@@ -131,16 +132,38 @@ int clock_ticks = 0;
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p); // See 4.2
 KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used);     // See 4.3
 
-void KernelStart(char *cmd_args[])
-{
+
+void KernelStart(char * cmd_args[], unsigned int pmem_size,
+                 UserContext *uctxt){
     /**
-     * 1. Initialize PT0
-     * 2. Initialize all trap vectors()
-     * 3. Write page table base and limit to registers
-     * 4. Enable vMEM
-     * 5. Initialize all queues()
-     * 6. Load program defined in ARGS into memory
-     *
+     * For each page in pmem_size
+     *      Add a node to empty frames queue
+     * Initialize kernel_pt
+     * for each page between first_kernel_text_page and orig_kernel_brk_page
+     *      add an entry to kernel_pt mapping that page to its physical address
+     * Load the addresses of the bottom and top of kernel_pt into REG_PTBR0 and REG_PTLR0
+     * Initialize all trap vectors
+     * Initialize region 1 pagetable for idle, pop one frame off empty_frames and add it to this table
+     * Enable vMEM
+     * Initialize all queues()
+     * Create idlePCB, including:
+     *      region 1 page table for idle
+     *      kernel stack frames for idle
+     *      usercontext for idle
+     *      pid for idle
+     * Set userContext PC of idle to point to simple doIdle function (as described in manual)
+     * Set usercontext SP of idle to point to region 1 page table for idle
+     * Run idle
+     * For anything in cmd_args:
+     *      Create init_PCB for this process, including:
+     *          region 1 page table
+     *          new frames for kernel stack
+     *          usercontext
+     *          a PID
+     *      Call KCCopy to copy kernelcontext into init_PCB
+     *      Copy current kernel stack into kernel stack frames in init_PCB
+     * LoadProgram on the process in init_PCB, allowing the process to run
+     *      
      */
 }
 
@@ -205,4 +228,19 @@ int runNewProcess()
      * Call KernelContextSwitch(KCSwitch) with to_switch, to switch this process in
      * Change current_process to the pcb of to_switch
      */
+}
+
+int SetKernelBrk(void * addr){
+    /**
+     * Check if addr exceeds kernel stack pointer, if so, ERROR
+     * Round addr to next multiple of PAGESIZE bytes
+     * If addr is less than current kernelBrk, free all frames from addr to kernelBrk
+     * If addr is greater than current kernelBrk, allocate frames from kernelBrk to addr (inclusive) by doing the following:
+     *      0. For each frame we need:
+     *      a. If no more frames, ERROR
+            b. Get first available frame from free_frames
+     *          Increment kernelBrk by a page
+     *          Map next page we need to this frame in the userland page table
+     * 4. Set kernelBrk to addr
+    */
 }

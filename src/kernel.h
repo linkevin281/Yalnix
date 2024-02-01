@@ -116,16 +116,19 @@ void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
 
 int frame_count = 0;
 
-int brk;
+int kernelBrk;
 
 pcb *current_process;
 
 // For delay and traps
 int clock_ticks = 0;
 
-int KernelStart(char *cmd_args[]);
+
+void KernelStart(char * cmd_args[], unsigned int pmem_size,
+                 UserContext *uctxt);
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p); // See 4.2
 KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used); // See 4.3
 int allocateFrame();
 int deallocateFrame(int frame_index);
+int SetKernelBrk(void * addr);
 int runNewProcess();

@@ -141,6 +141,7 @@ void KernelStart(char * cmd_args[], unsigned int pmem_size,
      * Initialize kernel_pt
      * for each page between first_kernel_text_page and orig_kernel_brk_page
      *      add an entry to kernel_pt mapping that page to its physical address
+     *      set permissions, validity, etc. for that page
      * Load the addresses of the bottom and top of kernel_pt into REG_PTBR0 and REG_PTLR0
      * Initialize all trap vectors
      * Initialize region 1 pagetable for idle, pop one frame off empty_frames and add it to this table
@@ -234,13 +235,20 @@ int SetKernelBrk(void * addr){
     /**
      * Check if addr exceeds kernel stack pointer, if so, ERROR
      * Round addr to next multiple of PAGESIZE bytes
-     * If addr is less than current kernelBrk, free all frames from addr to kernelBrk
+     * If vmem is not enabled:
+     *      If addr is less than current kernelBrk, free all frames from addr to kernelBrk
+            Else If addr is greater than current kernelBrk, allocate frames from kernelBrk to addr (inclusive) by doing the following:
+            *  0. For each frame we need, starting one above the frame for the current KernelBrk:
+                    Do linear search in queue of empty frames for that frame
+                    Allocate that frame for the process, add it to kernel_pt
+    * If vmem is enabled:
+        If addr is less than current kernelBrk, free all frames from addr to kernelBrk
      * If addr is greater than current kernelBrk, allocate frames from kernelBrk to addr (inclusive) by doing the following:
      *      0. For each frame we need:
      *      a. If no more frames, ERROR
             b. Get first available frame from free_frames
      *          Increment kernelBrk by a page
      *          Map next page we need to this frame in the userland page table
-     * 4. Set kernelBrk to addr
+     * 4. Set kernelBrk to the page represented by addr
     */
 }

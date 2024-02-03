@@ -48,6 +48,7 @@ int Y_Exit(int status)
      * 4. Save exit status in PCB
      * 6. Wake all processes waiting on the current process (in the waiters queue in the pcb), moving them into ready queue in kernal
      * 7. if initial process, HALT
+     * 8. Pop next process off the ready queue (or whatever is ready to run - Zephyr said to run "scheduler"), run that
     */
 }
 

@@ -52,6 +52,7 @@ typedef struct pcb
     State_t state;
     Queue_t *children;
     Queue_t *zombies;
+    Queue_t * waiters;
 
     UserContext *user_c;
     KernelContext *kernel_c;
@@ -86,7 +87,7 @@ typedef struct Pipe
     int read_pos;
     int write_pos;
     char buffer[PIPE_SIZE];
-    Queue_t *readers;
+    Queue_t *readers; // pointers to pcbs waiting to read from this pipe
 } Pipe_t;
 
 #define MAX_LOCKS 100

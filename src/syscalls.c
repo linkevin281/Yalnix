@@ -14,6 +14,7 @@ int Y_Fork()
  /**
   * Create new PCB for child process, with input PCB as its parent and user context copied in from input PCB
   * Update parent PCB to say that this new PCB is its child
+  * Use KCCopy to copy parent's kernel context into the child
   * Initialize a new page table for the child process
   * For each page in the page table of the parent process:
   *     If page is valid:
@@ -45,8 +46,7 @@ int Y_Exit(int status)
      * 2. Return all of KERNAL_STACK to the free_frames queue
      * 3. Add this process to the zombie queue of parent if not null (dead)
      * 4. Save exit status in PCB
-     * 5. Loop thru children and set their parent (cur) to null
-     * 6. Wake parent, move from waiting to ready queue in kernal
+     * 6. Wake all processes waiting on the current process (in the waiters queue in the pcb), moving them into ready queue in kernal
      * 7. if initial process, HALT
     */
 }
@@ -136,9 +136,11 @@ int Y_Piperead(int pipe_id, void *buf, int len)
     /**
      * 1. Check if pipe_id is valid, if not, ERROR
      * 2. If len is greater than read-write pos, ERROR
-     * 3. Read in <=len bytes from read to min(read+len, read-write) into buf
-     * 4. Increment read_pos by len
-     * 5. Return len
+     * 3. If no bytes to read, add current pcb to readers queue for this pipe
+     * 4. Else:
+     * 5.   Read in <=len bytes from read to min(read+len, read-write) into buf
+     * 6.   Increment read_pos by len
+     * 7.   Return len
     */
 }
 
@@ -152,7 +154,8 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      * 3. If writing buffer from write_pos still exceeds, ERROR
      * 4. Copy len bytes from buf to cur_buffer at write_pos
      * 5. Increment write_pos by len
-     * 6. Return len
+     * 6. Move first pcb in the readers queue into the ready queue
+     * 7. Return len
      *     
     */
 }

@@ -46,6 +46,7 @@ typedef struct pcb {
     State_t state;
     Queue_t *children;
     Queue_t *zombies;
+    Queue_t * waiters; //to store pointers to pcbs of processes waiting on this one
 
     UserContext *user_c;
     KernelContext *kernel_c;
@@ -96,7 +97,7 @@ Queue_t delay_queue; // This will be sorted.
 Queue_t empty_locks;
 Queue_t empty_cvars;
 Queue_t empty_pipes;
-Queue_t empty_frames;
+Queue_t empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
 Queue terminal_input_buffers[NUM_TERMINALS];

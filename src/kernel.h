@@ -91,13 +91,13 @@ int first_kernel_data_page = 0;
 int orig_kernel_brk_page = 0;
 
 /* Queues to help indicate which resources are available (by index). */
-Queue_t ready_queue;
-Queue_t waiting_queue;
-Queue_t delay_queue; // This will be sorted. 
-Queue_t empty_locks;
-Queue_t empty_cvars;
-Queue_t empty_pipes;
-Queue_t empty_frames; // to track free frames
+Queue_t* ready_queue;
+Queue_t* waiting_queue;
+Queue_t* delay_queue; // This will be sorted. 
+Queue_t* empty_locks;
+Queue_t* empty_cvars;
+Queue_t* empty_pipes;
+Queue_t* empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
 Queue terminal_input_buffers[NUM_TERMINALS];

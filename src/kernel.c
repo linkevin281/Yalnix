@@ -99,14 +99,14 @@ int first_kernel_text_page = 0;
 int first_kernel_data_page = 0;
 int orig_kernel_brk_page = 0;
 
-/* Queues to help indicate which indicies of their are empty. */
-Queue_t ready_queue;
-Queue_t waiting_queue;
-Queue_t delay_queue; // This will be sorted.
-Queue_t empty_locks;
-Queue_t empty_cvars;
-Queue_t empty_pipes;
-Queue_t empty_frames;
+/* Queues to help indicate which resources are available (by index). */
+Queue_t* ready_queue;
+Queue_t* waiting_queue;
+Queue_t* delay_queue; // This will be sorted. 
+Queue_t* empty_locks;
+Queue_t* empty_cvars;
+Queue_t* empty_pipes;
+Queue_t* empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length
 Queue_t terminal_input_buffers[NUM_TERMINALS];
@@ -119,6 +119,8 @@ Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
 
 void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
+
+pte_t kernel_pt[(VMEM_0_SIZE - KERNEL_STACK_MAXSIZE)/PAGESIZE]; //pagetable for all non-stack parts of the kernel
 
 int frame_count = 0;
 
@@ -135,6 +137,20 @@ KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used);  
 
 void KernelStart(char * cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt){
+                    empty_frames = (Queue_t*) malloc(sizeof(Queue_t));
+                    Node_t* new_node;
+                    //incrementing backwards, so that lowest-addresed frames are at front of the queue
+                    for(int i = (int) pmem_size/PAGESIZE; i >= 0; i--){
+                        new_node = (Node_t*) malloc(sizeof(Node_t));
+                        new_node->data = i;
+                        //TODO: append the node to empty_frames
+                    }
+                    for(int j = first_kernel_text_page; j < first_kernel_data_page; j++){
+                        
+                        kernel_pt[j].pfn = allocateFrame();
+                        kernel_pt[j].prot = 101;
+                        kernel_pt[j].valid = PROT_READ | PROT_WRITE;
+                    }
     /**
      * For each page in pmem_size
      *      allocate a frame, adding it to empty_frames

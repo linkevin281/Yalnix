@@ -19,7 +19,7 @@ Node_t *createNode(void *data)
 }
 
 // Create a new queue, the head and tail are dummy nodes
-Queue_t *createQueue(unsigned capacity)
+Queue_t *createQueue()
 {
     Queue_t *queue = (Queue_t *)malloc(sizeof(Queue_t));
     if (queue == NULL)

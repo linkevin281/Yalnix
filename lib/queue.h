@@ -25,7 +25,7 @@ typedef struct Queue
 } Queue_t;
 
 // Function prototypes
-Queue_t *createQueue(unsigned capacity);
+Queue_t *createQueue();
 int isEmpty(Queue_t *queue);
 int enqueue(Queue_t *queue, void *data);
 Node_t *dequeue(Queue_t *queue);

@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct Node Node_t;
 
@@ -27,9 +28,11 @@ typedef struct Queue
 // Function prototypes
 Queue_t *createQueue();
 int isEmpty(Queue_t *queue);
-int enqueue(Queue_t *queue, void *data);
+int enqueue(Queue_t *queue, void *data, int sizeof_data);
+int enqueueBack(Queue_t *queue, void *data, int sizeof_data);
 Node_t *dequeue(Queue_t *queue);
 Node_t *front(Queue_t *queue);
 Node_t *rear(Queue_t *queue);
+int removeFrameNode(Queue_t *queue, int frame_number);
 int getSize(Queue_t *queue);
 void deleteQueue(Queue_t *queue);

@@ -8,11 +8,16 @@
 #include "queue.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef HARDWARE_H
+#include <hardware.h>
+#endif
 
-Node_t *createNode(void *data)
+Node_t *createNode(void *data, int sizeof_data)
 {
     Node_t *node = (Node_t *)malloc(sizeof(Node_t));
-    node->data = data;
+    void *data_copy = malloc(sizeof_data);
+    memcpy(data_copy, data, sizeof_data);
+    node->data = data_copy;
     node->next = NULL;
     node->prev = NULL;
     return node;
@@ -26,8 +31,8 @@ Queue_t *createQueue()
     {
         return NULL;
     }
-    queue->head = createNode(NULL);
-    queue->tail = createNode(NULL);
+    queue->head = createNode(NULL, 0);
+    queue->tail = createNode(NULL, 0);
     queue->head->next = queue->tail;
     queue->tail->prev = queue->head;
     queue->size = 0;
@@ -41,9 +46,9 @@ int isEmpty(Queue_t *queue)
 }
 
 // Add item to queue from head, return -1 if failed
-int enqueue(Queue_t *queue, void *data)
+int enqueue(Queue_t *queue, void *data, int sizeof_data)
 {
-    Node_t *node = createNode(data);
+    Node_t *node = createNode(data, sizeof_data);
     if (node == NULL)
     {
         return -1;
@@ -53,6 +58,23 @@ int enqueue(Queue_t *queue, void *data)
     node->prev = queue->head;
     queue->head->next->prev = node;
     queue->head->next = node;
+
+    queue->size = queue->size + 1;
+    return 0;
+}
+
+int enqueueBack(Queue_t *queue, void *data, int sizeof_data)
+{
+    Node_t *node = createNode(data, sizeof_data);
+    if (node == NULL)
+    {
+        return -1;
+    }
+
+    node->next = queue->tail;
+    node->prev = queue->tail->prev;
+    queue->tail->prev->next = node;
+    queue->tail->prev = node;
 
     queue->size = queue->size + 1;
     return 0;
@@ -72,6 +94,27 @@ Node_t *dequeue(Queue_t *queue)
 
     queue->size = queue->size - 1;
     return node;
+}
+
+/**
+ *
+ * WARNING: This shit probably doesnt work. Or maybe we're good.
+ */
+int removeFrameNode(Queue_t *queue, int frame_number)
+{
+    Node_t *current = queue->head->next;
+    while (current != queue->tail)
+    {
+        if (*(int *)current->data == frame_number) // this line is bad
+        {
+            current->prev->next = current->next;
+            current->next->prev = current->prev;
+            queue->size = queue->size - 1;
+            return *(int *)(current->data);
+        }
+        current = current->next;
+    }
+    return -1;
 }
 
 // Function to get front of queue, returns NULL on fail
@@ -104,6 +147,7 @@ void deleteQueue(Queue_t *queue)
     while (!isEmpty(queue))
     {
         Node_t *node = dequeue(queue);
+        free(node->data);
         free(node);
     }
     free(queue->head);

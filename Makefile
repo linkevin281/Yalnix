@@ -9,11 +9,11 @@
 
 
 # Where's your kernel source?
-K_SRC_DIR = .
+K_SRC_DIR = ./src
 
 # What are the kernel c and include files?
-K_SRCS = 
-K_INCS = 
+K_SRCS = kernel.c ../lib/queue.c syscalls.c trap.c
+K_INCS = ../lib/queue.h kernel.h syscalls.h trap.h
 
 # Where's your user source?
 U_SRC_DIR = ./test
@@ -93,7 +93,7 @@ CPPFLAGS=  -D_FILE_OFFSET_BITS=64 -m32 -fno-builtin -I. -I$(INCDIR) -g -DLINUX -
 all: $(ALL)	
 
 clean:
-	rm -f *.o *~ TTYLOG* TRACE $(YALNIX_OUTPUT) $(USER_APPS) $(KERNEL_OBJS) $(USER_OBJS) core.* ~/core
+	rm -f *.o *~ TTYLOG* TRACE DISK $(YALNIX_OUTPUT) $(USER_APPS) $(KERNEL_OBJS) $(USER_OBJS) core.* ~/core
 
 count:
 	wc $(KERNEL_SRCS) $(USER_SRCS)

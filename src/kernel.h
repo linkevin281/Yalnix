@@ -8,25 +8,18 @@
  */
 
 
+#define ERROR                       -1
+
 /* Exit Codes */
 #define KILL                        -9
 #define GENERAL_EXCEPTION           -66
 #define ILLEGAL_MEMORY              -131 
 #define ILLEGAL_INSTRUCTION         -132 // or 4?
 #define FLOATING_POINT_EXCEPTION    -136
+#define MAX_KERNEL_STACK 4096
 
 #include <hardware.h>
-
-typedef struct Node {
-    void *data;
-    Node_t *next;
-    Node_t *prev;
-} Node_t;
-
-typedef struct Queue {
-    Node_t *head;
-    Node_t *tail;
-} Queue_t;
+#include "../lib/queue.h"
 
 typedef enum State {
     RUNNING        = 0,
@@ -52,7 +45,7 @@ typedef struct pcb {
     KernelContext *kernel_c;
 
     int brk;
-    void *kernel_stack_top;
+    void *kernel_stack_bottom;
     pte_t userland_pt[MAX_PT_LEN]; 
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
 } pcb_t;
@@ -60,13 +53,13 @@ typedef struct pcb {
 typedef struct Lock {
     int id;           // index in locks array
     int owner_pid;
-    Queue *waiting;
+    Queue_t *waiting;
 } Lock_t;
 
 typedef struct Cvar {
     int id;           // index in cvars array
     int owner_pid;
-    Queue *waiting;
+    Queue_t *waiting;
 } Cvar_t;
 
 #define PIPE_SIZE 1024
@@ -78,17 +71,12 @@ typedef struct Pipe {
     int read_pos;
     int write_pos;
     char buffer[PIPE_SIZE]; 
-    Queue *readers;
+    Queue_t *readers;
 } Pipe_t;
 
 #define MAX_LOCKS 100
 #define MAX_CVARS 100
 #define MAX_PIPES 100
-
-int virtual_mem_enabled = 0;
-int first_kernel_text_page = 0;
-int first_kernel_data_page = 0;
-int orig_kernel_brk_page = 0;
 
 /* Queues to help indicate which resources are available (by index). */
 Queue_t* ready_queue;
@@ -100,10 +88,10 @@ Queue_t* empty_pipes;
 Queue_t* empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
-Queue terminal_input_buffers[NUM_TERMINALS];
-Queue terminal_output_buffers[NUM_TERMINALS];
+Queue_t terminal_input_buffers[NUM_TERMINALS];
+Queue_t terminal_output_buffers[NUM_TERMINALS];
 
-bool can_transmit_to_terminal[NUM_TERMINALS];
+int can_transmit_to_terminal[NUM_TERMINALS];
 
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
@@ -115,9 +103,9 @@ void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
 int frame_count = 0;
 
-int kernelBrk;
+int kernel_brk;
 
-pcb *current_process;
+pcb_t *current_process;
 
 // For delay and traps
 int clock_ticks = 0;

@@ -7,150 +7,42 @@
  *
  */
 
-/* Exit Codes */
-#define KILL -9
-#define GENERAL_EXCEPTION -66
-#define ILLEGAL_MEMORY -131
-#define ILLEGAL_INSTRUCTION -132 // or 4?
-#define FLOATING_POINT_EXCEPTION -136
-
+#include "kernel.h"
+#include <yalnix.h>
 #include <hardware.h>
-#include <stdbool.h>
-
-#define MAX_KERNEL_STACK 4096
-
-typedef struct Node
-{
-    void *data;
-    Node_t *next;
-    Node_t *prev;
-} Node_t;
-
-typedef struct Queue
-{
-    Node_t *head;
-    Node_t *tail;
-} Queue_t;
-
-typedef enum State
-{
-    RUNNING = 0,
-    READY = 1,
-    LOCK_BLOCKED = 2,
-    CVAR_BLOCKED = 3,
-    PIPE_BLOCKED = 4,
-    DELAYED = 5,
-    ZOMBIE = 6,
-} State_t;
-
-typedef struct pcb
-{
-    int pid;
-    int p_pid;
-    int exit_status;
-    int ticks_delayed;
-    State_t state;
-    Queue_t *children;
-    Queue_t *zombies;
-    Queue_t * waiters;
-
-    UserContext *user_c;
-    KernelContext *kernel_c;
-
-    int brk;
-    void *kernel_stack_top;
-    pte_t *userland_pt[MAX_PT_LEN];
-    pte_t *kernel_pt[MAX_KERNEL_STACK / PAGESIZE];
-} pcb_t;
-
-typedef struct Lock
-{
-    int id; // index in locks array
-    int owner_pid;
-    Queue_t *waiting;
-} Lock_t;
-
-typedef struct Cvar
-{
-    int id; // index in cvars array
-    int owner_pid;
-    Queue_t *waiting;
-} Cvar_t;
-
-#define PIPE_SIZE 1024
-
-typedef struct Pipe
-{
-    int id; // index in pipes array
-    pcb_t *curr_reader;
-    pcb_t *curr_writer;
-    int read_pos;
-    int write_pos;
-    char buffer[PIPE_SIZE];
-    Queue_t *readers; // pointers to pcbs waiting to read from this pipe
-} Pipe_t;
-
-#define MAX_LOCKS 100
-#define MAX_CVARS 100
-#define MAX_PIPES 100
-
-int virtual_mem_enabled = 0;
-int first_kernel_text_page = 0;
-int first_kernel_data_page = 0;
-int orig_kernel_brk_page = 0;
-
-/* Queues to help indicate which resources are available (by index). */
-Queue_t* ready_queue;
-Queue_t* waiting_queue;
-Queue_t* delay_queue; // This will be sorted. 
-Queue_t* empty_locks;
-Queue_t* empty_cvars;
-Queue_t* empty_pipes;
-Queue_t* empty_frames; // to track free frames
-
-// each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length
-Queue_t terminal_input_buffers[NUM_TERMINALS];
-Queue_t terminal_output_buffers[NUM_TERMINALS];
-
-bool can_transmit_to_terminal[NUM_TERMINALS];
-
-Pipe_t pipes[MAX_PIPES];
-Lock_t locks[MAX_LOCKS];
-Cvar_t cvars[MAX_CVARS];
-
-void (*interrupt_vector_tbl[TRAP_VECTOR_SIZE])(UserContext *user_context);
-
-pte_t kernel_pt[(VMEM_0_SIZE - KERNEL_STACK_MAXSIZE)/PAGESIZE]; //pagetable for all non-stack parts of the kernel
-
-int frame_count = 0;
-
-int brk;
-
-pcb_t *current_process;
-
-// For delay and traps
-int clock_ticks = 0;
 
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p); // See 4.2
 KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used);     // See 4.3
 
+void KernelStart(char *cmd_args[], unsigned int pmem_size,
+                 UserContext *uctxt)
+{
+    TracePrintf(1, "KernelStart called: initial values \n pmem_size: %d\n _first_kernel_text_page: %d\n _first_kernel_data_page: %d\n _orig_kernel_brk_page: %d\n", pmem_size, _first_kernel_text_page, _first_kernel_data_page, _orig_kernel_brk_page);
+    kernel_brk = _orig_kernel_brk_page << PAGESHIFT;
+    TracePrintf(1, "KernelStart: kernel_brk: %p\n", kernel_brk);
 
-void KernelStart(char * cmd_args[], unsigned int pmem_size,
-                 UserContext *uctxt){
-                    empty_frames = (Queue_t*) malloc(sizeof(Queue_t));
-                    Node_t* new_node;
-                    //incrementing backwards, so that lowest-addresed frames are at front of the queue
-                    for(int i = (int) pmem_size/PAGESIZE; i >= 0; i--){
-                        new_node = (Node_t*) malloc(sizeof(Node_t));
-                        new_node->data = i;
-                        //TODO: append the node to empty_frames
-                    }
-                    for(int j = first_kernel_text_page; j < first_kernel_data_page; j++){
-                        
-                        kernel_pt[j].pfn = allocateFrame();
-                        kernel_pt[j].prot = 101;
-                        kernel_pt[j].valid = PROT_READ | PROT_WRITE;
-                    }
+    // 1. Create Frame Queue
+    // incrementing backwards, so that lowest-addresed frames are at front of the queue
+    empty_frames = createQueue();
+    for (int i = 0; i < (int)(pmem_size / PAGESIZE); i++)
+    {
+        if (enqueueBack(empty_frames, &i, sizeof(int)) == -1)
+        {
+            TracePrintf(1, "Error: Could not enqueue frame %d into empty_frames\n", i);
+        }
+    }
+    TracePrintf(1, "Empty frames queue created\n");
+
+    for (int j = _first_kernel_text_page; j < _first_kernel_data_page; j++)
+    {
+        TracePrintf(1, "Allocating frame for kernel_pt\n");
+        // allocate frame -> (frame number/index) -> add to kernel_pt
+        unsigned long pt_index = removeFrameNode(empty_frames, j);
+        kernel_pt[pt_index].pfn = pt_index;
+        kernel_pt[pt_index].prot = PROT_READ | PROT_EXEC;
+        kernel_pt[pt_index].valid = 1;
+    }
+
     /**
      * For each page in pmem_size
      *      allocate a frame, adding it to empty_frames
@@ -180,8 +72,13 @@ void KernelStart(char * cmd_args[], unsigned int pmem_size,
      *      Call KCCopy to copy kernelcontext into init_PCB
      *      Copy current kernel stack into kernel stack frames in init_PCB
      * LoadProgram on the process in init_PCB, allowing the process to run
-     *      
+     *
      */
+
+    // for (int i = 0; i < (int)pmem_size / PAGESIZE; i++)
+    // {
+    //     int frame = empty_frames;
+    // }
 }
 
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p)
@@ -215,15 +112,23 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
      */
 }
 
+/**
+ * If there are frames in empty_frames:
+ *      pop the first frame off of empty_frames
+ *      Return the number of this frame
+ * Else:
+ *      Return -1 (this could potentially be modified by evicting an existing frame - something to pursue once base functionality is working)
+ */
 int allocateFrame()
 {
-    /**
-     * If there are frames in empty_frames:
-     *      pop the first frame off of empty_frames
-     *      Return the number of this frame
-     * Else:
-     *      Return -1 (this could potentially be modified by evicting an existing frame - something to pursue once base functionality is working)
-     */
+    if (getSize(empty_frames) > 0)
+    {
+        return *(int *)dequeue(empty_frames)->data;
+    }
+    else
+    {
+        return ERROR;
+    }
 }
 
 int deallocateFrame(int frame_index)
@@ -247,7 +152,8 @@ int runNewProcess()
      */
 }
 
-int SetKernelBrk(void * addr){
+int SetKernelBrk(void *addr)
+{
     /**
      * Check if addr exceeds kernel stack pointer, if so, ERROR
      * Round addr to next multiple of PAGESIZE bytes
@@ -267,4 +173,50 @@ int SetKernelBrk(void * addr){
      *          Map next page we need to this frame in the userland page table
      * 4. Set kernelBrk to the page represented by addr
     */
+
+    TracePrintf(1, "SetKernelBrk called with addr: %p\n", addr);
+    // Check if addr exceeds kernel stack pointer, if so, ERROR
+    if (ReadRegister(REG_VM_ENABLE) == 1)
+    {
+        if ((unsigned int)addr > (unsigned int)current_process->kernel_stack_bottom)
+        {
+            return ERROR;
+        }
+    }
+    // If addr is less than current kernelBrk, free all frames from addr to kernelBrk
+    if ((unsigned int)addr < kernel_brk)
+    {
+
+        int bottom_page_index = UP_TO_PAGE(addr) >> PAGESHIFT;
+        int top_page_index = kernel_brk >> PAGESHIFT;
+        for (int i = bottom_page_index; i < top_page_index; i++)
+        {
+            deallocateFrame(i);
+            kernel_pt[i].valid = 0;
+        }
+        kernel_brk = UP_TO_PAGE(addr);
+    }
+    // If addr is greater than current kernelBrk, allocate frames from kernelBrk to addr (inclusive)
+    else if ((unsigned int)addr > kernel_brk)
+    {
+        int bottom_page_index = kernel_brk >> PAGESHIFT;
+        int top_page_index = UP_TO_PAGE(addr) >> PAGESHIFT;
+        TracePrintf(1, "bottom_page_index: %d, top_page_index: %d\n", bottom_page_index, top_page_index);
+        TracePrintf(1, "ReadRegister(REG_VM_ENABLE): %d\n", ReadRegister(REG_VM_ENABLE));
+        for (int i = bottom_page_index; i < top_page_index; i++)
+        {
+            int frame_index = removeFrameNode(empty_frames, i); // One liner for virtual and non-virtual memory
+            if (frame_index == -1)
+            {
+                return ERROR;
+            }
+            kernel_pt[frame_index].pfn = frame_index;
+            kernel_pt[frame_index].valid = 1;
+            TracePrintf(1, "Allocated frame %d for kernel_pt at memory address %p\n", frame_index, frame_index << PAGESHIFT);
+        }
+        kernel_brk = UP_TO_PAGE(addr);
+        TracePrintf(1, "SetKernelBrk: kernel_brk: %p\n", kernel_brk);
+
+    }
+    return 0;
 }

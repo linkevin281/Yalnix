@@ -8,6 +8,7 @@
  */
 
 #include "kernel.h"
+#include "trap.h"
 #include <yalnix.h>
 #include <hardware.h>
 
@@ -17,31 +18,6 @@ KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used);  
 void KernelStart(char *cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt)
 {
-    TracePrintf(1, "KernelStart called: initial values \n pmem_size: %d\n _first_kernel_text_page: %d\n _first_kernel_data_page: %d\n _orig_kernel_brk_page: %d\n", pmem_size, _first_kernel_text_page, _first_kernel_data_page, _orig_kernel_brk_page);
-    kernel_brk = _orig_kernel_brk_page << PAGESHIFT;
-    TracePrintf(1, "KernelStart: kernel_brk: %p\n", kernel_brk);
-
-    // 1. Create Frame Queue
-    // incrementing backwards, so that lowest-addresed frames are at front of the queue
-    empty_frames = createQueue();
-    for (int i = 0; i < (int)(pmem_size / PAGESIZE); i++)
-    {
-        if (enqueueBack(empty_frames, &i, sizeof(int)) == -1)
-        {
-            TracePrintf(1, "Error: Could not enqueue frame %d into empty_frames\n", i);
-        }
-    }
-    TracePrintf(1, "Empty frames queue created\n");
-
-    for (int j = _first_kernel_text_page; j < _first_kernel_data_page; j++)
-    {
-        TracePrintf(1, "Allocating frame for kernel_pt\n");
-        // allocate frame -> (frame number/index) -> add to kernel_pt
-        unsigned long pt_index = removeFrameNode(empty_frames, j);
-        kernel_pt[pt_index].pfn = pt_index;
-        kernel_pt[pt_index].prot = PROT_READ | PROT_EXEC;
-        kernel_pt[pt_index].valid = 1;
-    }
 
     /**
      * For each page in pmem_size
@@ -74,6 +50,61 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
      * LoadProgram on the process in init_PCB, allowing the process to run
      *
      */
+
+    TracePrintf(1, "KernelStart called: initial values \n pmem_size: %d\n _first_kernel_text_page: %d\n _first_kernel_data_page: %d\n _orig_kernel_brk_page: %d\n", pmem_size, _first_kernel_text_page, _first_kernel_data_page, _orig_kernel_brk_page);
+    kernel_brk = _orig_kernel_brk_page << PAGESHIFT;
+    TracePrintf(1, "KernelStart: kernel_brk: %p\n", kernel_brk);
+
+    // 1. Create Frame Queue
+    // incrementing backwards, so that lowest-addresed frames are at front of the queue
+    empty_frames = createQueue();
+    for (int i = 0; i < (int)(pmem_size / PAGESIZE); i++)
+    {
+        if (enqueueBack(empty_frames, &i, sizeof(int)) == -1)
+        {
+            TracePrintf(1, "Error: Could not enqueue frame %d into empty_frames\n", i);
+        }
+    }
+    TracePrintf(1, "Empty frames queue created\n");
+
+    for (int j = _first_kernel_text_page; j < _first_kernel_data_page; j++)
+    {
+        TracePrintf(1, "Allocating frame for kernel text, frame: %d, mem: %p\n", j, j << PAGESHIFT);
+        // allocate frame -> (frame number/index) -> add to kernel_pt
+        unsigned long pt_index = removeFrameNode(empty_frames, j);
+        kernel_pt[pt_index].pfn = pt_index;
+        kernel_pt[pt_index].prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+        kernel_pt[pt_index].valid = 1;
+    }
+    for (int k = _first_kernel_data_page; k < _orig_kernel_brk_page; k++)
+    {
+        TracePrintf(1, "Allocating frame for kernel data, frame: %d, mem: %p\n", k, k << PAGESHIFT);
+        unsigned long pt_index = removeFrameNode(empty_frames, k);
+        kernel_pt[pt_index].pfn = pt_index;
+        kernel_pt[pt_index].prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+        kernel_pt[pt_index].valid = 1;
+    }
+    TracePrintf(1, "Kernel PT initialized\n");
+
+    WriteRegister(REG_PTBR0, (unsigned int)&kernel_pt);
+    WriteRegister(REG_PTLR0, VMEM_0_SIZE);
+
+    // Initialize trap vectors
+    interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
+    interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
+    interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
+    interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
+    interrupt_vector_tbl[TRAP_MATH] = TrapMath;
+    interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
+    interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
+    interrupt_vector_tbl[TRAP_DISK] = TrapDisk;
+    for (int i = TRAP_DISK + 1; i < TRAP_VECTOR_SIZE; i++)
+    {
+        interrupt_vector_tbl[i] = TrapElse;
+    }
+
+    
+
 
     // for (int i = 0; i < (int)pmem_size / PAGESIZE; i++)
     // {
@@ -216,7 +247,6 @@ int SetKernelBrk(void *addr)
         }
         kernel_brk = UP_TO_PAGE(addr);
         TracePrintf(1, "SetKernelBrk: kernel_brk: %p\n", kernel_brk);
-
     }
     return 0;
 }

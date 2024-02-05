@@ -1,8 +1,10 @@
-
+## General Files
 /trash
 .vscode
 
+## ./Yalnix outputs
 DISK
 TRACE
 TTYLOG*
 yalnix
+*.o

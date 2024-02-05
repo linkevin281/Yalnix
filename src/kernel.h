@@ -97,7 +97,7 @@ Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
 
-pte_t kernel_pt[(VMEM_0_SIZE - KERNEL_STACK_MAXSIZE)/PAGESIZE]; //pagetable for all non-stack parts of the kernel
+pte_t kernel_pt[MAX_PT_LEN]; //pagetable for all non-stack parts of the kernel
 
 void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
@@ -106,6 +106,7 @@ int frame_count = 0;
 int kernel_brk;
 
 pcb_t *current_process;
+pcb_t *idle_process;
 
 // For delay and traps
 int clock_ticks = 0;

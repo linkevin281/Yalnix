@@ -66,7 +66,13 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         }
     }
     TracePrintf(1, "Empty frames queue created\n");
-    // TODO: What is in pages below first text page?
+    // As stated by SWS in ed, stuff below first text page has validity 0
+    for (int i = 0; i < _first_kernel_text_page; i++)
+    {
+        TracePrintf(1, "Marking frame %d as invalid, it's below first kernel text page\n", i);
+        unsigned long pt_index = removeFrameNode(empty_frames, i);
+        kernel_pt[pt_index].valid = 0;
+    }
     // Optimization: we can improve efficiency by doing one pass through the linked list after this for-loop, and removing all nodes we wanna remove
     // Optimization can be extended to all uses of removeFramenode in a loop
     for (int j = _first_kernel_text_page; j < _first_kernel_data_page; j++)

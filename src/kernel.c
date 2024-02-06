@@ -66,16 +66,21 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         }
     }
     TracePrintf(1, "Empty frames queue created\n");
-
+    // TODO: What is in pages below first text page?
+    // Optimization: we can improve efficiency by doing one pass through the linked list after this for-loop, and removing all nodes we wanna remove
+    // Optimization can be extended to all uses of removeFramenode in a loop
     for (int j = _first_kernel_text_page; j < _first_kernel_data_page; j++)
     {
         TracePrintf(1, "Allocating frame for kernel text, frame: %d, mem: %p\n", j, j << PAGESHIFT);
         // allocate frame -> (frame number/index) -> add to kernel_pt
         unsigned long pt_index = removeFrameNode(empty_frames, j);
+        // per Miles, when vmem is off that just means pages must map exactly to their corresponding frames
         kernel_pt[pt_index].pfn = pt_index;
         kernel_pt[pt_index].prot = PROT_READ | PROT_WRITE | PROT_EXEC;
         kernel_pt[pt_index].valid = 1;
     }
+
+    // Optimization: we can improve efficiency by doing one pass through the linked list after this, and removing all nodes we wanna remove
     for (int k = _first_kernel_data_page; k < _orig_kernel_brk_page; k++)
     {
         TracePrintf(1, "Allocating frame for kernel data, frame: %d, mem: %p\n", k, k << PAGESHIFT);
@@ -206,18 +211,25 @@ int SetKernelBrk(void *addr)
     */
 
     TracePrintf(1, "SetKernelBrk called with addr: %p\n", addr);
-    // Check if addr exceeds kernel stack pointer, if so, ERROR
-    if (ReadRegister(REG_VM_ENABLE) == 1)
+
+    // Bounds check: if address is less than start of data or above lowest point kernel stack can be, error
+    if ((unsigned int)addr < _orig_kernel_brk_page << PAGESHIFT ||  (unsigned int) addr > (unsigned int) (KERNEL_STACK_LIMIT - KERNEL_STACK_MAXSIZE))
     {
-        if ((unsigned int)addr > (unsigned int)current_process->kernel_stack_bottom)
-        {
-            return ERROR;
-        }
+        TracePrintf(1, "SetKernelBrk called with bad addr of %p", addr);
+        return ERROR;
     }
+
+    // If VMEM not enabled, we just move kernel_brk
+    if (ReadRegister(REG_VM_ENABLE) != 1)
+    {
+        TracePrintf(1, "VMEM off, setting kernel brk to: %d\n", (unsigned int) addr);
+        kernel_brk = (unsigned int) addr;
+    }
+    // VMEM is enabled
+    else {
     // If addr is less than current kernelBrk, free all frames from addr to kernelBrk
     if ((unsigned int)addr < kernel_brk)
     {
-
         int bottom_page_index = UP_TO_PAGE(addr) >> PAGESHIFT;
         int top_page_index = kernel_brk >> PAGESHIFT;
         for (int i = bottom_page_index; i < top_page_index; i++)
@@ -236,17 +248,19 @@ int SetKernelBrk(void *addr)
         TracePrintf(1, "ReadRegister(REG_VM_ENABLE): %d\n", ReadRegister(REG_VM_ENABLE));
         for (int i = bottom_page_index; i < top_page_index; i++)
         {
-            int frame_index = removeFrameNode(empty_frames, i); // One liner for virtual and non-virtual memory
+            int frame_index = removeFrameNode(empty_frames, i); // Allocate the relevant frame
             if (frame_index == -1)
             {
                 return ERROR;
             }
             kernel_pt[frame_index].pfn = frame_index;
             kernel_pt[frame_index].valid = 1;
+            kernel_pt[frame_index].prot = PROT_READ | PROT_WRITE;
             TracePrintf(1, "Allocated frame %d for kernel_pt at memory address %p\n", frame_index, frame_index << PAGESHIFT);
         }
         kernel_brk = UP_TO_PAGE(addr);
         TracePrintf(1, "SetKernelBrk: kernel_brk: %p\n", kernel_brk);
+    }
     }
     return 0;
 }

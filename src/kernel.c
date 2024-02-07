@@ -128,12 +128,14 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         kernel_pt[pt_index].pfn = l;
         kernel_pt[pt_index].valid = 1;
         kernel_pt[pt_index].prot = PROT_READ | PROT_WRITE;
+        TracePrintf(1, "Allocating frame for kernel heap, frame: %d, mem: %p\n", l, l << PAGESHIFT);
     }
 
     // Enable VMEM
     WriteRegister(REG_VM_ENABLE, 1);
 
-    KernelContextSwitch(KCSwitch, NULL, idle_process);
+    sleep(1);
+    // KernelContextSwitch(KCSwitch, NULL, idle_process);
 
     // for (int i = 0; i < (int)pmem_size / PAGESIZE; i++)
     // {
@@ -330,8 +332,8 @@ int initIdleProcess(UserContext *uctxt)
 {
     idle_process = createPCB();
     TracePrintf(1, "Idle process created\n");
-    memcpy(&idle_process->user_c, uctxt, sizeof(UserContext));
-
+    memcpy(&idle_process->user_c, uctxt, sizeof(UserContext)); // For after checkpoint 2
+    
     // Setup Kernel Stack
     TracePrintf(1, "Idle process kernel stack init start\n");
 
@@ -357,17 +359,24 @@ int initIdleProcess(UserContext *uctxt)
         idle_process->userland_pt[i].valid = 0;
     }
     // Init User stack
-
-    int frame = *(int *)dequeueHead(empty_frames)->data; // This is the highest available frame
+    int frame = removeFrameNode(empty_frames, 50); // This is the highest available frame of the vmem region
     TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
     idle_process->userland_pt[frame].pfn = frame;
     idle_process->userland_pt[frame].valid = 1;
     idle_process->userland_pt[frame].prot = PROT_READ | PROT_WRITE;
+    kernel_pt[frame].pfn = frame;
+    kernel_pt[frame].valid = 1;
+    kernel_pt[frame].prot = PROT_READ | PROT_WRITE | PROT_EXEC;
 
     TracePrintf(1, "mem of DoIdle: %p\n", DoIdle);
     TracePrintf(1, "mem of sp: %p\n", frame << PAGESHIFT);
-    idle_process->user_c.sp = (void *)(frame << PAGESHIFT);
+    idle_process->user_c.sp = (void *)(UP_TO_PAGE(frame << PAGESHIFT));
     idle_process->user_c.pc = (void *)DoIdle;
+
+
+    // Checkpoint 2 code
+    uctxt->sp = (void *)(frame << PAGESHIFT);
+    uctxt->pc = (void *)DoIdle;
 }
 
 pcb_t *createPCB()

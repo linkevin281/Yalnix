@@ -133,8 +133,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Enable VMEM
     WriteRegister(REG_VM_ENABLE, 1);
-
-    sleep(1);
+    
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
 
     // for (int i = 0; i < (int)pmem_size / PAGESIZE; i++)
@@ -366,7 +365,7 @@ int initIdleProcess(UserContext *uctxt)
     idle_process->userland_pt[frame].prot = PROT_READ | PROT_WRITE;
     kernel_pt[frame].pfn = frame;
     kernel_pt[frame].valid = 1;
-    kernel_pt[frame].prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+    kernel_pt[frame].prot = PROT_READ | PROT_WRITE;
 
     TracePrintf(1, "mem of DoIdle: %p\n", DoIdle);
     TracePrintf(1, "mem of sp: %p\n", frame << PAGESHIFT);
@@ -375,7 +374,8 @@ int initIdleProcess(UserContext *uctxt)
 
 
     // Checkpoint 2 code
-    uctxt->sp = (void *)(frame << PAGESHIFT);
+    // Since we're 32-bit, we need to set the kernel stack pointer to 4 bytes below the top of the kernel stack
+    uctxt->sp = (void *)((frame << PAGESHIFT) + PAGESIZE - 4);
     uctxt->pc = (void *)DoIdle;
 }
 

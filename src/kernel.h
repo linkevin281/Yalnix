@@ -41,11 +41,10 @@ typedef struct pcb {
     Queue_t *zombies;
     Queue_t * waiters; //to store pointers to pcbs of processes waiting on this one
 
-    UserContext *user_c;
-    KernelContext *kernel_c;
+    UserContext user_c;
+    KernelContext kernel_c;
 
     int brk;
-    void *kernel_stack_bottom;
     pte_t userland_pt[MAX_PT_LEN]; 
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
 } pcb_t;
@@ -97,7 +96,7 @@ Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
 
-pte_t kernel_pt[MAX_PT_LEN]; //pagetable for all non-stack parts of the kernel
+pte_t kernel_pt[MAX_PT_LEN];
 
 void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
@@ -120,3 +119,6 @@ int allocateFrame();
 int deallocateFrame(int frame_index);
 int SetKernelBrk(void * addr);
 int runNewProcess();
+int initIdleProcess(UserContext *uctxt);
+pcb_t *createPCB();
+void DoIdle();

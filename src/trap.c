@@ -11,6 +11,7 @@
 
 void TrapKernel(UserContext *user_context)
 {
+    TracePrintf(1, "TRAPPPPP: Kernel Trap. Syscall code: %d\n", user_context->code);
     /**
      * 1. Save user context
      * 2. Switch to kernel mode
@@ -22,6 +23,8 @@ void TrapKernel(UserContext *user_context)
 
 void TrapClock(UserContext *user_context)
 {
+    TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
+
     /**
      * 1. Increment clock (if we go with a global clock)
      * 2. Check delay queue, find all processes that are ready to be woken up
@@ -86,6 +89,7 @@ void TrapDisk(UserContext *user_context)
 
 void TrapElse(UserContext *user_context)
 {
+    TracePrintf(1, "TRAPPPPP: General Exception Trap.\n");
     /**
      * 1. Kill cur process with Y_Exit(GENERAL_EXCEPTION)
     */

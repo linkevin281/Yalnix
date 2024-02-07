@@ -29,8 +29,9 @@ typedef struct Queue
 Queue_t *createQueue();
 int isEmpty(Queue_t *queue);
 int enqueue(Queue_t *queue, void *data, int sizeof_data);
-int enqueueBack(Queue_t *queue, void *data, int sizeof_data);
+int enqueueHead(Queue_t *queue, void *data, int sizeof_data);
 Node_t *dequeue(Queue_t *queue);
+Node_t *dequeueHead(Queue_t *queue);
 Node_t *front(Queue_t *queue);
 Node_t *rear(Queue_t *queue);
 int removeFrameNode(Queue_t *queue, int frame_number);

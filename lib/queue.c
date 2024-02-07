@@ -63,7 +63,7 @@ int enqueue(Queue_t *queue, void *data, int sizeof_data)
     return 0;
 }
 
-int enqueueBack(Queue_t *queue, void *data, int sizeof_data)
+int enqueueHead(Queue_t *queue, void *data, int sizeof_data)
 {
     Node_t *node = createNode(data, sizeof_data);
     if (node == NULL)
@@ -96,9 +96,25 @@ Node_t *dequeue(Queue_t *queue)
     return node;
 }
 
+Node_t *dequeueHead(Queue_t *queue)
+{
+    if (isEmpty(queue))
+    {
+        return NULL;
+    }
+
+    Node_t *node = queue->head->next;
+    queue->head->next = node->next;
+    node->next->prev = queue->head;
+
+    queue->size = queue->size - 1;
+    return node;
+}
+
 /**
  *
  * WARNING: This shit probably doesnt work. Or maybe we're good.
+ * UPDATE: It does work, but we should optimize later.
  */
 int removeFrameNode(Queue_t *queue, int frame_number)
 {

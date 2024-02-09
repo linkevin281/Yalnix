@@ -355,7 +355,7 @@ int initIdleProcess(UserContext *uctxt)
         idle_process->userland_pt[i].valid = 0;
     }
     // Init User stack
-    int frame = removeFrameNode(empty_frames, 50); // This is the highest available frame of the vmem region
+    int frame = removeFrameNode(empty_frames, 125); // This is the highest available frame at the moment
     TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
     idle_process->userland_pt[frame].pfn = frame;
     idle_process->userland_pt[frame].valid = 1;

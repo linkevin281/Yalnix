@@ -66,7 +66,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         }
     }
     TracePrintf(1, "Empty frames queue created\n");
-    // As stated by SWS in ed, stuff below first text page has validity 0
+    // As stated by SWS in ed, stuff below first text page has validity 0 
     for (int i = 0; i < _first_kernel_text_page; i++)
     {
         TracePrintf(1, "Marking frame %d as invalid, it's below first kernel text page\n", i);
@@ -340,9 +340,6 @@ int initIdleProcess(UserContext *uctxt)
     {
         TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
         int frame_index = removeFrameNode(empty_frames, i);
-        idle_process->userland_pt[i].pfn = frame_index;
-        idle_process->userland_pt[i].valid = 1;
-        idle_process->userland_pt[i].prot = PROT_READ | PROT_WRITE;
         kernel_pt[frame_index].pfn = frame_index;
         kernel_pt[frame_index].valid = 1;
         kernel_pt[frame_index].prot = PROT_READ | PROT_WRITE;

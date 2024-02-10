@@ -110,6 +110,8 @@ pcb_t *idle_process;
 // For delay and traps
 int clock_ticks = 0;
 
+int current_pid = 0;
+
 
 void KernelStart(char * cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt);
@@ -120,5 +122,8 @@ int deallocateFrame(int frame_index);
 int SetKernelBrk(void * addr);
 int runNewProcess();
 int initIdleProcess(UserContext *uctxt);
+int initInitProcess(UserContext *uctxt);
 pcb_t *createPCB();
+int createPID();
 void DoIdle();
+void DoInit(void);

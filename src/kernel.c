@@ -133,6 +133,9 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Enable VMEM
     WriteRegister(REG_VM_ENABLE, 1);
+
+    // Init process
+    initInitProcess(uctxt);
     
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
 
@@ -198,15 +201,15 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
     // Copy kernel stack PT into the new process's pcb
     for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
     {
-        new_pcb->userland_pt[i].pfn = kernel_pt[i].pfn;
-        new_pcb->userland_pt[i].valid = kernel_pt[i].valid;
-        new_pcb->userland_pt[i].prot = kernel_pt[i].prot;
+        new_pcb->kernel_stack_pt[i].pfn = current_process->kernel_stack_pt[i].pfn;
+        new_pcb->kernel_stack_pt[i].valid = current_process->kernel_stack_pt[i].valid;
+        new_pcb->kernel_stack_pt[i].prot = current_process->kernel_stack_pt[i].prot;
     }
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
-    return &new_pcb->kernel_c;
+    return kc_in;
 }
 
 /**
@@ -374,6 +377,58 @@ int initIdleProcess(UserContext *uctxt)
     // Since we're 32-bit, we need to set the kernel stack pointer to 4 bytes below the top of the kernel stack
     uctxt->sp = (void *)((frame << PAGESHIFT) + PAGESIZE - 4);
     uctxt->pc = (void *)DoIdle;
+
+    // Checkpoint 3 code
+    current_process = idle_process;
+}
+
+int initInitProcess(UserContext *uctxt){
+
+    pcb_t* init_process = createPCB();
+
+    // allocate region 1 pagetable
+    for(int i = 0; i < VMEM_1_SIZE >> PAGESHIFT; i++){
+        int curr_frame = allocateFrame();
+        if(curr_frame == -1){
+            TracePrintf(1, "Allocating frame failed. ABORTING!\n");
+        }
+        init_process->userland_pt[i].pfn = curr_frame;
+        init_process->userland_pt[i].valid = 0;
+        init_process->userland_pt[i].prot = PROT_NONE;
+    }
+
+    // Setup Kernel Stack
+    TracePrintf(1, "Init process kernel stack init start\n");
+
+    for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
+    {
+        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
+        int curr_frame = allocateFrame();
+        if(curr_frame == -1){
+            TracePrintf(1, "Allocating frame failed. ABORTING!\n");
+        }
+        init_process->kernel_stack_pt[i].pfn = curr_frame;
+        init_process->kernel_stack_pt[i].valid = 1;
+        init_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+    }
+    TracePrintf(1, "Init process kernel stack init end\n");
+
+    // copy user context passed in to our pcb
+    memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
+
+    init_process->pid = createPID();
+    
+    // for user stack
+    int top_page = VMEM_1_SIZE >> PAGESHIFT - 1;
+    init_process->user_c.sp = (void *)((top_page) + PAGESIZE - 4);
+    init_process->user_c.pc = (void *) DoInit;
+
+
+    TracePrintf(1,"About to clone idle into init\n");
+    KernelContextSwitch(KCCopy, init_process, NULL);
+    TracePrintf(0,"Back from the clone---am I idle or init?\n");
+
+
 }
 
 pcb_t *createPCB()
@@ -391,11 +446,27 @@ pcb_t *createPCB()
     return pcb;
 }
 
+
+int createPID(){
+    return ++current_pid;
+}
+
+
+
 void DoIdle(void)
 {
     while (1)
     {
         TracePrintf(1, "DoIdle\n");
+        Pause();
+    }
+}
+
+void DoInit(void)
+{
+    while (1)
+    {
+        TracePrintf(1, "DoInit\n");
         Pause();
     }
 }

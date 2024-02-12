@@ -436,17 +436,17 @@ int initInitProcess(UserContext *uctxt){
     init_process->pid = createPID();
     
     // for user stack
-    int top_page = VMEM_1_SIZE >> PAGESHIFT - 1;
+    int top_page = (VMEM_1_SIZE >> PAGESHIFT) - 1;
     TracePrintf(1, "top page: %d\n", top_page);
-    TracePrintf(1, "max pt len: %d", MAX_PT_LEN);
+    TracePrintf(1, "max pt len: %d\n", MAX_PT_LEN);
 
 
     init_process->userland_pt[top_page].pfn = allocateFrame();
     idle_process->userland_pt[top_page].valid = 1;
     idle_process->userland_pt[top_page].prot = PROT_READ | PROT_WRITE;
 
-    //init_process->user_c.sp = (void *)((top_page << PAGESHIFT) - 4);
-    //init_process->user_c.pc = (void *) DoInit;
+    init_process->user_c.sp = (void *)((top_page << PAGESHIFT) - 4);
+    init_process->user_c.pc = (void *) DoInit;
 
 
     TracePrintf(1,"About to clone idle into init\n");

@@ -201,27 +201,24 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
     // temporary place to store frames in for loop below
     int temp_base_page = (KERNEL_STACK_BASE - PAGESIZE) >> PAGESHIFT;
     TracePrintf(1, "temp_base_page is %d\n", temp_base_page);
+
+    int first_page_in_kstack = (VMEM_0_SIZE - KERNEL_STACK_MAXSIZE) >> PAGESHIFT;
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+
     // Copy kernel stack PT into  the new process's pcb
-    for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++)
     {   
         TracePrintf(1, "In KCCopy for loop, i is: %d\n", i);
-        int frame = allocateFrame();
-        TracePrintf(1, "In KCCopy, just allocated frame: %d\n", frame);
-        // map new frame into our address space, starting right below kernel
-        kernel_pt[temp_base_page].pfn = frame;
+        // map page to same address as kernel stack page
+        kernel_pt[temp_base_page].pfn = new_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
         kernel_pt[temp_base_page].valid = 1;
-        TracePrintf(1, "address of i pageshift: %p\n", (i << PAGESHIFT));
         // copy ith page in stack into temp address
-        memcpy((void*) (temp_base_page << PAGESHIFT), (void*) (i << PAGESHIFT), PAGESIZE);
-        TracePrintf(1, "Just copied into temp_base_page from %p\n", (i << PAGESHIFT));
-        new_pcb->kernel_stack_pt[i].pfn = frame;
-        new_pcb->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
-        new_pcb->kernel_stack_pt[i].valid = 1;
-
-        // undo temp mapping
-        TracePrintf(1, "temp_base_page address is %p\n", (temp_base_page << PAGESHIFT));
-    }
+        memcpy((void*) (temp_base_page << PAGESHIFT), (void*) (first_page_in_kstack + i), PAGESIZE);
+        TracePrintf(1, "Just copied into temp_base_page from %p\n", (first_page_in_kstack + i));
+        WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
+    }   
 
     kernel_pt[temp_base_page].valid = 0;
 
@@ -416,6 +413,23 @@ int initInitProcess(UserContext *uctxt){
         init_process->userland_pt[i].prot = PROT_NONE;
     }
 
+    // Setup Kernel Stack
+    TracePrintf(1, "Init process kernel stack init start\n");
+
+    for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
+    {
+        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
+        int curr_frame = allocateFrame();
+        if(curr_frame == -1){
+            TracePrintf(1, "Allocating frame failed. ABORTING!\n");
+        }
+        init_process->kernel_stack_pt[i].pfn = curr_frame;
+        init_process->kernel_stack_pt[i].valid = 1;
+        init_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+    }
+    TracePrintf(1, "Init process kernel stack init end\n");
+
+
     // copy user context passed in to our pcb
     memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
 
@@ -423,8 +437,16 @@ int initInitProcess(UserContext *uctxt){
     
     // for user stack
     int top_page = VMEM_1_SIZE >> PAGESHIFT - 1;
-    init_process->user_c.sp = (void *)((top_page) + PAGESIZE - 4);
-    init_process->user_c.pc = (void *) DoInit;
+    TracePrintf(1, "top page: %d\n", top_page);
+    TracePrintf(1, "max pt len: %d", MAX_PT_LEN);
+
+
+    init_process->userland_pt[top_page].pfn = allocateFrame();
+    idle_process->userland_pt[top_page].valid = 1;
+    idle_process->userland_pt[top_page].prot = PROT_READ | PROT_WRITE;
+
+    //init_process->user_c.sp = (void *)((top_page << PAGESHIFT) - 4);
+    //init_process->user_c.pc = (void *) DoInit;
 
 
     TracePrintf(1,"About to clone idle into init\n");

@@ -203,8 +203,8 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
     TracePrintf(1, "temp_base_page is %d\n", temp_base_page);
     // Copy kernel stack PT into  the new process's pcb
     for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
-    {
-
+    {   
+        TracePrintf(1, "In KCCopy for loop, i is: %d\n", i);
         int frame = allocateFrame();
         TracePrintf(1, "In KCCopy, just allocated frame: %d\n", frame);
         // map new frame into our address space, starting right below kernel
@@ -215,15 +215,15 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         // copy ith page in stack into temp address
         memcpy((void*) (temp_base_page << PAGESHIFT), (void*) (i << PAGESHIFT), PAGESIZE);
         TracePrintf(1, "Just copied into temp_base_page from %p\n", (i << PAGESHIFT));
-        removeFrameNode(empty_frames, i);
         new_pcb->kernel_stack_pt[i].pfn = frame;
         new_pcb->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
         new_pcb->kernel_stack_pt[i].valid = 1;
 
         // undo temp mapping
-        // kernel_pt[temp_base_page].valid = 0;
-        TracePrintf(1, "temp_base_page is %p", temp_base_page);
+        TracePrintf(1, "temp_base_page address is %p\n", (temp_base_page << PAGESHIFT));
     }
+
+    kernel_pt[temp_base_page].valid = 0;
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
@@ -415,22 +415,6 @@ int initInitProcess(UserContext *uctxt){
         init_process->userland_pt[i].valid = 0;
         init_process->userland_pt[i].prot = PROT_NONE;
     }
-
-    // Setup Kernel Stack
-    TracePrintf(1, "Init process kernel stack init start\n");
-
-    for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
-    {
-        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
-        int curr_frame = allocateFrame();
-        if(curr_frame == -1){
-            TracePrintf(1, "Allocating frame failed. ABORTING!\n");
-        }
-        init_process->kernel_stack_pt[i].pfn = curr_frame;
-        init_process->kernel_stack_pt[i].valid = 1;
-        init_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
-    }
-    TracePrintf(1, "Init process kernel stack init end\n");
 
     // copy user context passed in to our pcb
     memcpy(&init_process->user_c, uctxt, sizeof(UserContext));

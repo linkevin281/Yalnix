@@ -212,6 +212,7 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         TracePrintf(1, "In KCCopy for loop, i is: %d\n", i);
         // map page to same address as kernel stack page
         kernel_pt[temp_base_page].pfn = new_pcb->kernel_stack_pt[i].pfn;
+        TracePrintf(1, "PFN in for loop was: %d\n", new_pcb->kernel_stack_pt[i].pfn);
         kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
         kernel_pt[temp_base_page].valid = 1;
         // copy ith page in stack into temp address
@@ -219,6 +220,13 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         TracePrintf(1, "Just copied into temp_base_page from %p\n", (first_page_in_kstack + i));
         WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
     }   
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+    // write kernel stack into kernel pt
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++){
+        kernel_pt[first_page_in_kstack + i].pfn = new_pcb->kernel_stack_pt[i].pfn;
+        kernel_pt[first_page_in_kstack + i].valid = new_pcb->kernel_stack_pt[i].valid;
+        kernel_pt[first_page_in_kstack + i].prot = new_pcb->kernel_stack_pt[i].prot;
+    }
 
     kernel_pt[temp_base_page].valid = 0;
 
@@ -403,7 +411,7 @@ int initInitProcess(UserContext *uctxt){
     pcb_t* init_process = createPCB();
 
     // allocate region 1 pagetable
-    for(int i = 0; i < VMEM_1_SIZE >> PAGESHIFT; i++){
+    for(int i = 0; i < MAX_PT_LEN; i++){
         int curr_frame = allocateFrame();
         if(curr_frame == -1){
             TracePrintf(1, "Allocating frame failed. ABORTING!\n");
@@ -416,7 +424,7 @@ int initInitProcess(UserContext *uctxt){
     // Setup Kernel Stack
     TracePrintf(1, "Init process kernel stack init start\n");
 
-    for (int i = KERNEL_STACK_BASE >> PAGESHIFT; i < KERNEL_STACK_LIMIT >> PAGESHIFT; i++)
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++)
     {
         TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
         int curr_frame = allocateFrame();

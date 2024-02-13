@@ -213,22 +213,22 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         // map page to same address as kernel stack page
         kernel_pt[temp_base_page].pfn = new_pcb->kernel_stack_pt[i].pfn;
         TracePrintf(1, "PFN in for loop was: %d\n", new_pcb->kernel_stack_pt[i].pfn);
-        kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
-        kernel_pt[temp_base_page].valid = 1;
+        kernel_pt[temp_base_page].prot = new_pcb->kernel_stack_pt[i].prot;
+        kernel_pt[temp_base_page].valid = new_pcb->kernel_stack_pt[i].valid;
+        TracePrintf(1, "PFN in for loop was: %d\n");
         // copy ith page in stack into temp address
-        memcpy((void*) (temp_base_page << PAGESHIFT), (void*) (first_page_in_kstack + i), PAGESIZE);
-        TracePrintf(1, "Just copied into temp_base_page from %p\n", (first_page_in_kstack + i));
+        memcpy((void*) (temp_base_page << PAGESHIFT), (void*) ((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
+        TracePrintf(1, "Just copied into temp_base_page from %p\n", ((first_page_in_kstack + i) << PAGESHIFT));
         WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
     }   
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+    kernel_pt[temp_base_page].valid = 0;
     // write kernel stack into kernel pt
     for (int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++){
         kernel_pt[first_page_in_kstack + i].pfn = new_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[first_page_in_kstack + i].valid = new_pcb->kernel_stack_pt[i].valid;
         kernel_pt[first_page_in_kstack + i].prot = new_pcb->kernel_stack_pt[i].prot;
     }
-
-    kernel_pt[temp_base_page].valid = 0;
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
@@ -428,6 +428,7 @@ int initInitProcess(UserContext *uctxt){
     {
         TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", i, i << PAGESHIFT);
         int curr_frame = allocateFrame();
+        TracePrintf(1, "In init process, allocated frame: %d\n", curr_frame);
         if(curr_frame == -1){
             TracePrintf(1, "Allocating frame failed. ABORTING!\n");
         }

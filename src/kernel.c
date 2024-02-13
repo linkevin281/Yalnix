@@ -148,7 +148,6 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     initInitProcess(uctxt);
     TracePrintf(1, "Uctxtssp is %p\n", uctxt->sp);
 
-    WriteRegister(REG_PTBR1, TLB_FLUSH_ALL);
 
 
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
@@ -384,23 +383,23 @@ int initIdleProcess(UserContext *uctxt)
         idle_process->userland_pt[i].valid = 0;
     }
     // Init User stack
-    int frame = removeFrameNode(empty_frames, 125); // This is the highest available frame at the moment
+    int frame = allocateFrame(empty_frames); // This is the highest available frame at the moment
     TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
-    idle_process->userland_pt[frame].pfn = frame;
-    idle_process->userland_pt[frame].valid = 1;
-    idle_process->userland_pt[frame].prot = PROT_READ | PROT_WRITE;
-    kernel_pt[frame].pfn = frame;
-    kernel_pt[frame].valid = 1;
-    kernel_pt[frame].prot = PROT_READ | PROT_WRITE;
+    int page = (VMEM_1_SIZE >> PAGESHIFT)-1;
+    idle_process->userland_pt[page].pfn = frame;
+    idle_process->userland_pt[page].valid = 1;
+    idle_process->userland_pt[page].prot = PROT_READ | PROT_WRITE;
 
     TracePrintf(1, "mem of DoIdle: %p\n", DoIdle);
     TracePrintf(1, "mem of sp: %p\n", frame << PAGESHIFT);
     idle_process->user_c.sp = (void *)(UP_TO_PAGE(frame << PAGESHIFT));
     idle_process->user_c.pc = (void *)DoIdle;
+    WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
     // Checkpoint 2 code
     // Since we're 32-bit, we need to set the kernel stack pointer to 4 bytes below the top of the kernel stack
-    uctxt->sp = (void *)((frame << PAGESHIFT) + PAGESIZE - 4);
+    uctxt->sp = (void *)((page << PAGESHIFT) + PAGESIZE - 4);
     uctxt->pc = (void *)DoIdle;
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
@@ -459,7 +458,7 @@ int initInitProcess(UserContext *uctxt)
     KernelContextSwitch(KCCopy, init_process, NULL);
     TracePrintf(0, "Back from the clone---am I idle or init?\n");
     WriteRegister(REG_PTBR1, (unsigned int)(init_process->userland_pt));
-    WriteRegister(REG_PTLR1, (unsigned int)(init_process->userland_pt) + MAX_PT_LEN);
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
 }
 
 pcb_t *createPCB()

@@ -8,6 +8,7 @@
  */
 
 
+
 #define ERROR                       -1
 
 /* Exit Codes */
@@ -121,9 +122,9 @@ int allocateFrame();
 int deallocateFrame(int frame_index);
 int SetKernelBrk(void * addr);
 int runNewProcess();
-int initIdleProcess(UserContext *uctxt);
-int initInitProcess(UserContext *uctxt);
+pcb_t *initIdleProcess(UserContext *uctxt);
+pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *createPCB();
+int LoadProgram(char *name, char *args[], pcb_t *pcb);
 int createPID();
 void DoIdle();
-void DoInit(void);

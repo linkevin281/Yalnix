@@ -22,6 +22,8 @@
 #include <hardware.h>
 #include "../lib/queue.h"
 
+typedef struct pcb pcb_t;
+
 typedef enum State {
     RUNNING        = 0,
     READY          = 1,
@@ -29,12 +31,12 @@ typedef enum State {
     CVAR_BLOCKED   = 3,
     PIPE_BLOCKED   = 4,
     DELAYED        = 5,
-    ZOMBIE         = 6,
+    DEAD           = 6,
 } State_t;
 
 typedef struct pcb {
     int pid;
-    int p_pid;
+    pcb_t *parent;
     int exit_status; // if exited, this contains exit status.
     int ticks_delayed; //number of ticks until we can move this pcb out of delay queue
     State_t state;
@@ -121,8 +123,8 @@ KernelContext *KCCopy(KernelContext *kc_in, void *curr_pcb_p, void *not_used); /
 int allocateFrame();
 int deallocateFrame(int frame_index);
 int SetKernelBrk(void * addr);
-int runNewProcess();
-pcb_t *initIdleProcess(UserContext *uctxt);
+int runProcess();
+pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *createPCB();
 int LoadProgram(char *name, char *args[], pcb_t *pcb);

@@ -8,3 +8,5 @@ TRACE
 TTYLOG*
 yalnix
 *.o
+
+.nfs*

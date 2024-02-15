@@ -105,7 +105,9 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Initialize trap vectors
     interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
-    interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
+    // interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
+    interrupt_vector_tbl[TRAP_CLOCK] = Checkpoint3TrapClock;
+
     // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
     // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
     // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
@@ -149,15 +151,15 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     ready_queue = createQueue();
 
     // Init and Idle Process
-    char* idle_process_name = "./test/idle";
+    char *idle_process_name = "./test/idle";
     idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
     enqueue(ready_queue, idle_process, sizeof(pcb_t));
-    
+
     char *init_process_name = "./test/init";
     // if (cmd_args[0] != NULL)
     // {
     //     init_process_name = cmd_args[0];
-    
+
     // }
     pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name);
     // Set uctxt to init so that the kernel knows to run
@@ -166,7 +168,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     uctxt->sp = current_process->user_c.sp;
     uctxt->pc = current_process->user_c.pc;
-    
+
     TracePrintf(1, "KernelStart: about to call KernelContextSwitch\n");
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
 }
@@ -178,7 +180,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
      * - Our kernel uses KernelContextSwitch() to switch between processes upon
      *      when the current process is done executing or some trap/wait other
      *      event occurs.
-     * 
+     *
      * • copy the current KernelContext into the old PCB
         • change the Region 0 kernel stack mappings to those for the new PCB
         • return a pointer to the KernelContext in the new PCB
@@ -206,7 +208,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
         {
             TracePrintf(1, "Kernel stack page %d has different protection\n", i);
         }
-        
+
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn = next_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid = next_pcb->kernel_stack_pt[i].valid;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot = next_pcb->kernel_stack_pt[i].prot;
@@ -237,7 +239,9 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 
     // temporary place to store frames in for loop below
     int temp_base_page = (KERNEL_STACK_BASE - PAGESIZE) >> PAGESHIFT;
-    TracePrintf(1, "temp_base_page is %d\n", temp_base_page);
+    kernel_pt[temp_base_page].valid = 1;
+
+    TracePrintf(1, "Temp page original pfn: %d\n", kernel_pt[temp_base_page].pfn);
 
     int first_page_in_kstack = (VMEM_0_SIZE - KERNEL_STACK_MAXSIZE) >> PAGESHIFT;
 
@@ -247,18 +251,17 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
         // map page to same address as kernel stack page
-        TracePrintf(1, "Physical frame: %d, and virtual address: %p of kernel stack page %d\n", kernel_pt[first_page_in_kstack + i].pfn, (first_page_in_kstack + i) << PAGESHIFT, i);
-        TracePrintf(1, "Physical frame: %d, and virtual address: %p of new process kernel stack page %d\n", new_pcb->kernel_stack_pt[i].pfn, (temp_base_page + i) << PAGESHIFT, i);
         kernel_pt[temp_base_page].pfn = new_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[temp_base_page].prot = new_pcb->kernel_stack_pt[i].prot;
         kernel_pt[temp_base_page].valid = new_pcb->kernel_stack_pt[i].valid;
-        TracePrintf(1, "Set kernel_pt[%d] to pfn: %d, prot: %d, valid: %d\n", temp_base_page, kernel_pt[temp_base_page].pfn, kernel_pt[temp_base_page].prot, kernel_pt[temp_base_page].valid);
+        TracePrintf(1, "Just changed pfn of temp page to %d. Temp page lives at page %d\n", kernel_pt[temp_base_page].pfn, temp_base_page);
 
         // copy ith page in stack into temp address
-        TracePrintf(1, "src: %p, dest: %p\n", (void *)((first_page_in_kstack + i) << PAGESHIFT), (void *)((temp_base_page) << PAGESHIFT));
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
-        TracePrintf(1, "Copied kernel stack page %d\n", i);
+    
+        TracePrintf(1, "Just copied page %d into temp page %d\n", first_page_in_kstack + i, temp_base_page);
     }
+
     TracePrintf(1, "Kernel stack copied\n");
     kernel_pt[temp_base_page].valid = 0;
 
@@ -329,7 +332,8 @@ int runProcess()
     TracePrintf(1, "Queue size: %d\n", getSize(ready_queue));
 
     pcb_t *next = (pcb_t *)dequeue(ready_queue)->data;
-    if (next == NULL) {
+    if (next == NULL)
+    {
         TracePrintf(1, "No process to run\n");
         return ERROR;
     }
@@ -476,7 +480,6 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     KernelContextSwitch(KCCopy, idle_process, NULL);
     TracePrintf(1, "Back from the clone---am I idle or init?\n");
 
-    
     // WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
     // WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
@@ -516,6 +519,22 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
         init_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
     }
 
+    // Init region 1 page table for init process
+    TracePrintf(1, "Idle process region 1 page table init start\n");
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        init_process->userland_pt[i].pfn = 0;
+        init_process->userland_pt[i].pfn = 0;
+        init_process->userland_pt[i].valid = 0;
+    }
+    // Init User stack
+    int frame = allocateFrame(empty_frames); // This is the highest available frame at the moment
+    TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
+    int page = (VMEM_1_SIZE >> PAGESHIFT) - 1;
+    init_process->userland_pt[page].pfn = frame;
+    init_process->userland_pt[page].valid = 1;
+    init_process->userland_pt[page].prot = PROT_READ | PROT_WRITE;
+
     LoadProgram(name, args, init_process);
     // KernelContextSwitch(KCCopy, init_process, NULL);
 
@@ -524,7 +543,7 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     // TracePrintf(1, "About to clone idle into init\n");
     // KernelContextSwitch(KCCopy, init_process, NULL);
     // TracePrintf(0, "Back from the clone---am I idle or init?\n");
-    
+
     return init_process;
 }
 
@@ -851,4 +870,19 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     *cpp++ = NULL; /* a NULL pointer for an empty envp */
 
     return SUCCESS;
+}
+
+void Checkpoint3TrapClock(UserContext *user_context)
+{
+    TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
+    memcpy(&current_process->user_c, user_context, sizeof(UserContext));
+    runProcess();
+    memcpy(user_context, &current_process->user_c, sizeof(UserContext));
+    /**
+     * 1. Increment clock (if we go with a global clock)
+     * 2. Check delay queue, find all processes that are ready to be woken up
+     *       a. This delay queue is sorted by delay()
+     * 3. Move these processes from delay queue to ready queue
+     * 4. return to user mode
+     */
 }

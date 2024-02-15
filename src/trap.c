@@ -6,12 +6,8 @@
  * trap.c
  * 
  */
-#ifndef KERNEL_H
-#define KERNEL_H
-#endif
 
 #include <hardware.h>
-
 
 void TrapKernel(UserContext *user_context)
 {
@@ -28,7 +24,6 @@ void TrapKernel(UserContext *user_context)
 void TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
-    runProcess();
     /**
      * 1. Increment clock (if we go with a global clock)
      * 2. Check delay queue, find all processes that are ready to be woken up

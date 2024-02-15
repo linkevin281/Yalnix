@@ -112,9 +112,6 @@ pcb_t *idle_process;
 // For delay and traps
 int clock_ticks = 0;
 
-int current_pid = 0;
-
-
 void KernelStart(char * cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt);
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p); // See 4.2
@@ -127,5 +124,3 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *createPCB();
 int LoadProgram(char *name, char *args[], pcb_t *pcb);
-int createPID();
-void DoIdle();

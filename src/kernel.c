@@ -255,6 +255,7 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         TracePrintf(1, "Set kernel_pt[%d] to pfn: %d, prot: %d, valid: %d\n", temp_base_page, kernel_pt[temp_base_page].pfn, kernel_pt[temp_base_page].prot, kernel_pt[temp_base_page].valid);
 
         // copy ith page in stack into temp address
+        TracePrintf(1, "src: %p, dest: %p\n", (void *)((first_page_in_kstack + i) << PAGESHIFT), (void *)((temp_base_page) << PAGESHIFT));
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
         TracePrintf(1, "Copied kernel stack page %d\n", i);
     }
@@ -438,6 +439,8 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     TracePrintf(1, "Idle process created\n");
     memcpy(&idle_process->user_c, uctxt, sizeof(UserContext)); // For after checkpoint 2
 
+    WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
@@ -496,6 +499,8 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     // copy user context passed in to our pcb
     memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
 
+    WriteRegister(REG_PTBR1, (unsigned int)(init_process->userland_pt));
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
     // for kernel stack
     int top_page = (VMEM_1_SIZE >> PAGESHIFT);
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
@@ -512,6 +517,8 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     LoadProgram(name, args, init_process);
+    // KernelContextSwitch(KCCopy, init_process, NULL);
+
     TracePrintf(1, "Stack p address: %p\n", init_process->user_c.sp);
 
     // TracePrintf(1, "About to clone idle into init\n");
@@ -524,7 +531,7 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
 pcb_t *createPCB()
 {
     pcb_t *pcb = malloc(sizeof(pcb_t));
-    pcb->pid = createPID();
+    pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
     pcb->ticks_delayed = 0;
     pcb->state = RUNNING;
@@ -844,9 +851,4 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     *cpp++ = NULL; /* a NULL pointer for an empty envp */
 
     return SUCCESS;
-}
-
-int createPID()
-{
-    return current_pid++;
 }

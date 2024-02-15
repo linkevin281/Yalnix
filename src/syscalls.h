@@ -9,6 +9,8 @@
 
 #ifndef YALNIX_H
 #define YALNIX_H
+#ifndef _KERNEL_H
+#define _KERNEL_H
 
 /* Creates a new process that is a copy of the calling process. */
 int Y_Fork(void);
@@ -39,3 +41,4 @@ int Y_Cvarwait(int cvar_id, int lock_id);
 int Y_Reclaim(int id);
 
 #endif /* YALNIX_H */
+#endif /* _KERNEL_H */

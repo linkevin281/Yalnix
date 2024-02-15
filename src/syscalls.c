@@ -7,24 +7,25 @@
  *
  */
 
+#include <hardware.h>
+#include "kernel.h"
 
 // input: pcb
 int Y_Fork()
 {
- /**
-  * Create new PCB for child process, with input PCB as its parent and user context copied in from input PCB
-  * Update parent PCB to say that this new PCB is its child
-  * Use KCCopy to copy parent's kernel context into the child
-  * Initialize a new page table for the child process
-  * For each page in the page table of the parent process:
-  *     If page is valid:
-  *         Grab a free frame from empty_frames
-  *         allocate this free frame to the page
-  *         Copy contents of the page in the old table to the child
-  * Add child PCB to ready queue
-  * 
- */
-
+    /**
+     * Create new PCB for child process, with input PCB as its parent and user context copied in from input PCB
+     * Update parent PCB to say that this new PCB is its child
+     * Use KCCopy to copy parent's kernel context into the child
+     * Initialize a new page table for the child process
+     * For each page in the page table of the parent process:
+     *     If page is valid:
+     *         Grab a free frame from empty_frames
+     *         allocate this free frame to the page
+     *         Copy contents of the page in the old table to the child
+     * Add child PCB to ready queue
+     *
+     */
 }
 
 int Y_Exec(char *filename, char *argv[])
@@ -35,8 +36,8 @@ int Y_Exec(char *filename, char *argv[])
      *      Add the corresponding frame back to the queue of free frames
      * LoadProgram with the filename
      * Add PCB to ready queue
-     * 
-    */
+     *
+     */
 }
 
 int Y_Exit(int status)
@@ -49,7 +50,7 @@ int Y_Exit(int status)
      * 6. Wake all processes waiting on the current process (in the waiters queue in the pcb), moving them into ready queue in kernal
      * 7. if initial process, HALT
      * 8. Pop next process off the ready queue (or whatever is ready to run - Zephyr said to run "scheduler"), run that
-    */
+     */
 }
 
 int Y_Wait(int *status)
@@ -57,9 +58,9 @@ int Y_Wait(int *status)
     /**
      * 1. Loop through children, find one that is dead. If no children, ERROR, else
      *        add to waiting queue and load new ready.
-     * 2. Collect exit status from PCB, save to status and PID 
+     * 2. Collect exit status from PCB, save to status and PID
      * 3. return PID.
-    */
+     */
 }
 
 int Y_Getpid()
@@ -67,7 +68,8 @@ int Y_Getpid()
     /**
      * Using curr_process variable in kernel, get the pcb of the current process
      * Return the pid of the current process from this pcb
-    */
+     */
+    return current_process->pid;
 }
 
 int Y_Brk(void *addr)
@@ -85,8 +87,39 @@ int Y_Brk(void *addr)
      *          Map next page we need to this frame in the userland page table
      * 4. Set brk to addr
     */
-}
 
+    if (addr > current_process->user_c.sp - PAGESIZE)
+    {
+        return ERROR;
+    }
+    int addr_page = DOWN_TO_PAGE(addr);
+
+    // Free all frames from addr to brk
+    if (addr < current_process->brk)
+    {
+        for (int i = current_process->brk << PAGESHIFT; i > addr_page; i -= PAGESIZE)
+        {
+            if (i < current_process->user_c.sp - PAGESIZE)
+            {
+                deallocateFrame(i);
+            }
+        }
+    }
+    else
+    {
+        for (int i = current_process->brk << PAGESHIFT; i < addr_page; i += PAGESIZE)
+        {
+            if (i < current_process->user_c.sp - PAGESIZE)
+            {
+                int frame = allocateFrame(i);
+                if (frame == ERROR)
+                {
+                    return ERROR;
+                }
+            }
+        }
+    }
+}
 int Y_Delay(int clock_ticks)
 {
     /**
@@ -94,7 +127,12 @@ int Y_Delay(int clock_ticks)
      * Set ticks_delayed of this PCB to clock_ticks
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
-    */
+     */
+
+    current_process->ticks_delayed = clock_ticks;
+    enqueue(delay_queue, current_process, sizeof(pcb_t));
+    runProcess();
+    return 0;
 }
 
 int Y_Ttyread(int tty_id, void *buf, int len)
@@ -105,8 +143,8 @@ int Y_Ttyread(int tty_id, void *buf, int len)
      *     if buf is full or no more bytes to read
      *          exit loop
      * Return number of bytes read into buf
-     *      
-    */
+     *
+     */
 }
 
 int Y_Ttywrite(int tty_id, void *buf, int len)
@@ -118,7 +156,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
      * For each chunk of TERMINAL_MAX_LINE size in buf:
      *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
      *      wait for can_write_to_terminal to be true for this terminal
-    */
+     */
 }
 
 int Y_Pipeinit(int *pipe_idp)
@@ -129,7 +167,7 @@ int Y_Pipeinit(int *pipe_idp)
      * 3. Malloc pipe according to id, initialize read and write pos to 0, malloc buffer
      * 4. Fill kernel pipe array with pipe (maybe taken care of already by kernel?)
      * 5. Return 0
-    */
+     */
 }
 
 int Y_Piperead(int pipe_id, void *buf, int len)
@@ -142,7 +180,7 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 5.   Read in <=len bytes from read to min(read+len, read-write) into buf
      * 6.   Increment read_pos by len
      * 7.   Return len
-    */
+     */
 }
 
 int Y_Pipewrite(int pipe_id, void *buf, int len)
@@ -157,8 +195,8 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      * 5. Increment write_pos by len
      * 6. Move first pcb in the readers queue into the ready queue
      * 7. Return len
-     *     
-    */
+     *
+     */
 }
 
 int Y_LockInit(int *lock_idp)
@@ -169,7 +207,7 @@ int Y_LockInit(int *lock_idp)
      * 3. Malloc lock according to id, initialize waiting queue
      * 4. Fill kernel lock array with lock (maybe taken care of already by kernel?)
      * 5. Return 0
-    */
+     */
 }
 
 int Y_Acquire(int lock_id)
@@ -180,7 +218,7 @@ int Y_Acquire(int lock_id)
      * 3. If lock is held, add caller to waiting queue of that lock
      * 4. Add pid to kernel waiting queue, switch to next ready process
      * 5. Return 0
-    */
+     */
 }
 
 int Y_Release(int lock_id)
@@ -191,7 +229,7 @@ int Y_Release(int lock_id)
      * 3. If lock is held by this process, release it, add to free queue
      * 4. unalloc memory
      * 5. Return 0
-    */
+     */
 }
 
 int Y_CvarInit(int *cvar_idp)
@@ -202,7 +240,7 @@ int Y_CvarInit(int *cvar_idp)
      * 3. Malloc cvar according to id, initialize waiting queue
      * 4. Fill kernel cvar array with cvar (maybe taken care of already)
      * 5. Return 0
-    */
+     */
 }
 
 int Y_CvarSignal(int cvar_id)
@@ -211,7 +249,7 @@ int Y_CvarSignal(int cvar_id)
      * 1. Check if cvar_id is valid, if not, ERROR
      * 2. Move one process from waiting queue of cvar to ready queue of kernel
      * 3. Return 0
-    */
+     */
 }
 
 int Y_CvarBroadcast(int cvar_id)
@@ -220,7 +258,7 @@ int Y_CvarBroadcast(int cvar_id)
      * 1. Check if cvar_id is valid, if not, ERROR
      * 2. Move all processes from waiting queue of cvar to ready queue of kernel
      * 3. Return 0
-    */
+     */
 }
 
 int Y_Cvarwait(int cvar_id, int lock_id)
@@ -231,7 +269,7 @@ int Y_Cvarwait(int cvar_id, int lock_id)
      * 3. Add this PID to the waiting queue of the cvar
      * 4. Switch to next ready process, add this process to waiting queue of kernel
      * 5. Reacquire the lock, return 0 and return to userland
-    */
+     */
 }
 
 int Y_Reclaim(int id)
@@ -243,5 +281,5 @@ int Y_Reclaim(int id)
      * 4. If id is a cvar, free the cvar
      * 5. Add id to free ____ IDs queue
      * 6. If anythign went wrong, ERROR or return 0 on success
-    */
+     */
 }

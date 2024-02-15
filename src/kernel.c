@@ -11,6 +11,7 @@
 #include "trap.h"
 #include <yalnix.h>
 #include <hardware.h>
+#include "syscalls.h"
 
 // LOAD PROGRAM TEMPLATE
 #include <fcntl.h>

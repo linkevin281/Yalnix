@@ -8,7 +8,6 @@
  */
 
 
-
 #define ERROR                       -1
 
 /* Exit Codes */

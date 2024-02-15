@@ -100,7 +100,6 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     }
 
     TracePrintf(1, "Kernel PT initialized\n");
-
     WriteRegister(REG_PTBR0, (unsigned int)&kernel_pt);
     WriteRegister(REG_PTLR0, MAX_PT_LEN);
 
@@ -150,29 +149,24 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     ready_queue = createQueue();
 
     // Init and Idle Process
-    char *init_process_name = "./test/init";
-    if (cmd_args[0] != NULL)
-    {
-        init_process_name = cmd_args[0];
-    }
-    pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name);
-
     char* idle_process_name = "./test/idle";
     idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
     enqueue(ready_queue, idle_process, sizeof(pcb_t));
-
+    
+    char *init_process_name = "./test/init";
+    // if (cmd_args[0] != NULL)
+    // {
+    //     init_process_name = cmd_args[0];
+    
+    // }
+    pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name);
     // Set uctxt to init so that the kernel knows to run
-    uctxt->sp = init_process->user_c.sp;
-    uctxt->pc = init_process->user_c.pc;
     init_process->state = RUNNING;
     current_process = init_process;
 
-    TracePrintf(1, "KernelStart: about to call runProcess\n");
-    TracePrintf(1, "Pid of init process: %d\n", init_process->pid);
-    TracePrintf(1, "Pid of idle process: %d\n", idle_process->pid);
-
-    runProcess();
-
+    uctxt->sp = current_process->user_c.sp;
+    uctxt->pc = current_process->user_c.pc;
+    
     TracePrintf(1, "KernelStart: about to call KernelContextSwitch\n");
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
 }
@@ -186,8 +180,8 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
      *      event occurs.
      * 
      * • copy the current KernelContext into the old PCB
-• change the Region 0 kernel stack mappings to those for the new PCB
-• return a pointer to the KernelContext in the new PCB
+        • change the Region 0 kernel stack mappings to those for the new PCB
+        • return a pointer to the KernelContext in the new PCB
      *
      */
     pcb_t *curr_pcb = (pcb_t *)curr_pcb_p;
@@ -202,8 +196,17 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     // Copy kernel stack PT from kernel_pt to the current process's pcb
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
-        TracePrintf(1, "Protection on kernel stack page %d address %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot);
-        TracePrintf(1, "Protection on next process kernel stack page %d address %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, next_pcb->kernel_stack_pt[i].prot);
+        TracePrintf(1, "Protection on kernel stack page %d index %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot);
+        TracePrintf(1, "Protection on next process kernel stack page %d index %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, next_pcb->kernel_stack_pt[i].prot);
+        if (kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid != next_pcb->kernel_stack_pt[i].valid)
+        {
+            TracePrintf(1, "Kernel stack page %d is invalid\n", i);
+        }
+        if (kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot != next_pcb->kernel_stack_pt[i].prot)
+        {
+            TracePrintf(1, "Kernel stack page %d has different protection\n", i);
+        }
+        
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn = next_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid = next_pcb->kernel_stack_pt[i].valid;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot = next_pcb->kernel_stack_pt[i].prot;
@@ -211,11 +214,10 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-    WriteRegister(REG_PTBR1, (unsigned int)(next_pcb->userland_pt));
-    WriteRegister(REG_PTLR1, MAX_PT_LEN);
+    TracePrintf(1, "Kernel stack copied\n");
 
     // Return the next process's kernel context
-    return &next_pcb->kernel_c;
+    return &(next_pcb->kernel_c);
 }
 KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 {
@@ -254,6 +256,7 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 
         // copy ith page in stack into temp address
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
+        TracePrintf(1, "Copied kernel stack page %d\n", i);
     }
     TracePrintf(1, "Kernel stack copied\n");
     kernel_pt[temp_base_page].valid = 0;
@@ -339,7 +342,14 @@ int runProcess()
     }
     TracePrintf(1, "About to call KernelContextSwitch\n");
 
-    KernelContextSwitch(KCSwitch, current_process, next);
+    TracePrintf(1, "PID OF cur: %d, PID OF next: %d\n", current_process->pid, next->pid);
+
+    if (KernelContextSwitch(KCSwitch, current_process, next) == ERROR)
+    {
+        TracePrintf(1, "Error in KernelContextSwitch\n");
+        return ERROR;
+    }
+    TracePrintf(1, "Back from KernelContextSwitch\n");
     current_process = next;
 }
 
@@ -460,6 +470,9 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 
     LoadProgram(name, args, idle_process);
     idle_process->state = READY;
+    KernelContextSwitch(KCCopy, idle_process, NULL);
+    TracePrintf(1, "Back from the clone---am I idle or init?\n");
+
     
     // WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
     // WriteRegister(REG_PTLR1, MAX_PT_LEN);
@@ -483,8 +496,6 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     // copy user context passed in to our pcb
     memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
 
-    init_process->pid = createPID();
-
     // for kernel stack
     int top_page = (VMEM_1_SIZE >> PAGESHIFT);
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
@@ -503,9 +514,9 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     LoadProgram(name, args, init_process);
     TracePrintf(1, "Stack p address: %p\n", init_process->user_c.sp);
 
-    TracePrintf(1, "About to clone idle into init\n");
-    KernelContextSwitch(KCCopy, init_process, NULL);
-    TracePrintf(0, "Back from the clone---am I idle or init?\n");
+    // TracePrintf(1, "About to clone idle into init\n");
+    // KernelContextSwitch(KCCopy, init_process, NULL);
+    // TracePrintf(0, "Back from the clone---am I idle or init?\n");
     
     return init_process;
 }

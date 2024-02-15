@@ -152,22 +152,31 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Init and Idle Process
     char *idle_process_name = "./test/idle";
-    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
-    enqueue(ready_queue, idle_process, sizeof(pcb_t));
-
     char *init_process_name = "./test/init";
+
+    pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name); // Calls KCCopy pid 0
+
+    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name); // Joins after
+    enqueue(ready_queue, init_process, sizeof(pcb_t));
+
     // if (cmd_args[0] != NULL)
     // {
     //     init_process_name = cmd_args[0];
 
     // }
-    pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name);
+
     // Set uctxt to init so that the kernel knows to run
     init_process->state = RUNNING;
-    current_process = init_process;
+    current_process = idle_process;
+
+    TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
 
     uctxt->sp = current_process->user_c.sp;
     uctxt->pc = current_process->user_c.pc;
+    // WriteRegister(REG_PTBR1, (unsigned int)(current_process->userland_pt));
+    // WriteRegister(REG_PTLR1, MAX_PT_LEN);
+    
+    KernelContextSwitch(KCCopy, init_process, NULL);
 
     TracePrintf(1, "KernelStart: about to call KernelContextSwitch\n");
     // KernelContextSwitch(KCSwitch, NULL, idle_process);
@@ -189,6 +198,8 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     pcb_t *curr_pcb = (pcb_t *)curr_pcb_p;
     pcb_t *next_pcb = (pcb_t *)next_pcb_p;
     TracePrintf(1, "Pid of next process: %d, pid of current process: %d\n", next_pcb->pid, curr_pcb->pid);
+    TracePrintf(1, "Kernel stack of curr: %d, %d\n", curr_pcb->kernel_stack_pt[0].pfn, curr_pcb->kernel_stack_pt[1].pfn);
+    TracePrintf(1, "Kernel stack of next: %d, %d\n", next_pcb->kernel_stack_pt[0].pfn, next_pcb->kernel_stack_pt[1].pfn);
 
     // Copy KC into the current process's pcb
     memcpy(&curr_pcb->kernel_c, kc_in, sizeof(KernelContext));
@@ -198,8 +209,9 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     // Copy kernel stack PT from kernel_pt to the current process's pcb
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
-        TracePrintf(1, "Protection on kernel stack page %d index %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot);
-        TracePrintf(1, "Protection on next process kernel stack page %d index %d is %d\n", i, (KERNEL_STACK_BASE >> PAGESHIFT) + i, next_pcb->kernel_stack_pt[i].prot);
+       
+        TracePrintf(1, "Current kernel stack pfns, %d\n", kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn);
+        TracePrintf(1, "Next process kernel stack pfns, %d, %d\n", next_pcb->kernel_stack_pt[0].pfn, next_pcb->kernel_stack_pt[1].pfn);
         if (kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid != next_pcb->kernel_stack_pt[i].valid)
         {
             TracePrintf(1, "Kernel stack page %d is invalid\n", i);
@@ -208,7 +220,6 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
         {
             TracePrintf(1, "Kernel stack page %d has different protection\n", i);
         }
-
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn = next_pcb->kernel_stack_pt[i].pfn;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid = next_pcb->kernel_stack_pt[i].valid;
         kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot = next_pcb->kernel_stack_pt[i].prot;
@@ -216,7 +227,14 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+    
     TracePrintf(1, "Kernel stack copied\n");
+    TracePrintf(1, "My kernel pfns: %d, %d\n", kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT)].pfn, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1].pfn);
+    current_process = next_pcb;
+
+    WriteRegister(REG_PTBR1, (unsigned int)(current_process->userland_pt));
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     // Return the next process's kernel context
     return &(next_pcb->kernel_c);
@@ -255,12 +273,16 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         kernel_pt[temp_base_page].prot = new_pcb->kernel_stack_pt[i].prot;
         kernel_pt[temp_base_page].valid = new_pcb->kernel_stack_pt[i].valid;
         TracePrintf(1, "Just changed pfn of temp page to %d. Temp page lives at page %d\n", kernel_pt[temp_base_page].pfn, temp_base_page);
+        WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
         // copy ith page in stack into temp address
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
     
         TracePrintf(1, "Just copied page %d into temp page %d\n", first_page_in_kstack + i, temp_base_page);
+
+        // kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT)+i].pfn = new_pcb->kernel_stack_pt[i].pfn;
     }
+    // WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     TracePrintf(1, "Kernel stack copied\n");
     kernel_pt[temp_base_page].valid = 0;
@@ -355,7 +377,6 @@ int runProcess()
         return ERROR;
     }
     TracePrintf(1, "Back from KernelContextSwitch\n");
-    current_process = next;
 }
 
 int SetKernelBrk(void *addr)
@@ -439,6 +460,7 @@ int SetKernelBrk(void *addr)
 pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 {
     pcb_t *idle_process = createPCB();
+    TracePrintf(1, "Idle process created %d\n", idle_process->pid);
 
     TracePrintf(1, "Idle process created\n");
     memcpy(&idle_process->user_c, uctxt, sizeof(UserContext)); // For after checkpoint 2
@@ -448,15 +470,9 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
-        int frame = allocateFrame(empty_frames);
-        if (frame == -1)
-        {
-            TracePrintf(1, "Out of physical memory.\n");
-            return NULL;
-        }
-        idle_process->kernel_stack_pt[i].pfn = frame;
-        idle_process->kernel_stack_pt[i].valid = 1;
-        idle_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+        idle_process->kernel_stack_pt[i].pfn = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn;
+        idle_process->kernel_stack_pt[i].valid = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid;
+        idle_process->kernel_stack_pt[i].prot = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot;
     }
 
     // Init region 1 page table for idle process
@@ -477,8 +493,6 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 
     LoadProgram(name, args, idle_process);
     idle_process->state = READY;
-    KernelContextSwitch(KCCopy, idle_process, NULL);
-    TracePrintf(1, "Back from the clone---am I idle or init?\n");
 
     // WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
     // WriteRegister(REG_PTLR1, MAX_PT_LEN);
@@ -499,16 +513,16 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
 {
 
     pcb_t *init_process = createPCB();
+    TracePrintf(1, "Init process created %d\n", init_process->pid);
     // copy user context passed in to our pcb
     memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
-
-    WriteRegister(REG_PTBR1, (unsigned int)(init_process->userland_pt));
-    WriteRegister(REG_PTLR1, MAX_PT_LEN);
+    
     // for kernel stack
     int top_page = (VMEM_1_SIZE >> PAGESHIFT);
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
         int frame = allocateFrame(empty_frames);
+        TracePrintf(1, "hereAllocating frame for kernel stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
         if (frame == -1)
         {
             TracePrintf(1, "Out of physical memory.\n");
@@ -534,6 +548,8 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     init_process->userland_pt[page].pfn = frame;
     init_process->userland_pt[page].valid = 1;
     init_process->userland_pt[page].prot = PROT_READ | PROT_WRITE;
+    
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     LoadProgram(name, args, init_process);
     // KernelContextSwitch(KCCopy, init_process, NULL);

@@ -97,7 +97,7 @@ int Y_Brk(void *addr)
     // Free all frames from addr to brk
     if (addr < current_process->brk)
     {
-        for (int i = current_process->brk << PAGESHIFT; i > addr_page; i -= PAGESIZE)
+        for (int i = DOWN_TO_PAGE(current_process->brk) << PAGESHIFT; i > addr_page; i--)
         {
             if (i < current_process->user_c.sp - PAGESIZE)
             {
@@ -107,7 +107,7 @@ int Y_Brk(void *addr)
     }
     else
     {
-        for (int i = current_process->brk << PAGESHIFT; i < addr_page; i += PAGESIZE)
+        for (int i = UP_TO_PAGE(current_process->brk) << PAGESHIFT; i < addr_page; i++)
         {
             if (i < current_process->user_c.sp - PAGESIZE)
             {
@@ -116,9 +116,14 @@ int Y_Brk(void *addr)
                 {
                     return ERROR;
                 }
+                current_process->userland_pt[i >> PAGESHIFT].pfn = frame;
+                current_process->userland_pt[i >> PAGESHIFT].valid = 1;
+                current_process->userland_pt[i >> PAGESHIFT].prot = PROT_READ | PROT_WRITE;
             }
         }
     }
+    current_process->brk = addr;
+    return 0;
 }
 int Y_Delay(int clock_ticks)
 {

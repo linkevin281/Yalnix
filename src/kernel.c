@@ -19,10 +19,40 @@
 #include <ykernel.h>
 #include <load_info.h>
 
+/* Queues to help indicate which resources are available (by index). */
+Queue_t* ready_queue;
+Queue_t* waiting_queue;
+Queue_t* delay_queue; // This will be sorted. 
+Queue_t* empty_locks;
+Queue_t* empty_cvars;
+Queue_t* empty_pipes;
+Queue_t* empty_frames; // to track free frames
+
+// each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
+Queue_t terminal_input_buffers[NUM_TERMINALS];
+Queue_t terminal_output_buffers[NUM_TERMINALS];
+
+int can_transmit_to_terminal[NUM_TERMINALS];
+
+Pipe_t pipes[MAX_PIPES];
+Lock_t locks[MAX_LOCKS];
+Cvar_t cvars[MAX_CVARS];
+
+pte_t kernel_pt[MAX_PT_LEN];
+
+void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
+
+int kernel_brk = 0;
+
+pcb_t *current_process;
+pcb_t *idle_process;
+
+// For delay and traps
+int clock_ticks = 0;
+
 void KernelStart(char *cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt)
 {
-
     /**
      * For each page in pmem_size
      *      allocate a frame, adding it to empty_frames
@@ -441,7 +471,7 @@ int SetKernelBrk(void *addr)
             TracePrintf(1, "ReadRegister(REG_VM_ENABLE): %d\n", ReadRegister(REG_VM_ENABLE));
             for (int i = bottom_page_index; i < top_page_index; i++)
             {
-                int frame_index = allocateFrame(); // Allocate the relevant frame
+                int frame_index = allocateFrame();
                 if (frame_index == -1)
                 {
                     return ERROR;
@@ -484,13 +514,6 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
         idle_process->userland_pt[i].pfn = 0;
         idle_process->userland_pt[i].valid = 0;
     }
-    // Init User stack
-    int frame = allocateFrame(empty_frames); // This is the highest available frame at the moment
-    TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
-    int page = (VMEM_1_SIZE >> PAGESHIFT) - 1;
-    idle_process->userland_pt[page].pfn = frame;
-    idle_process->userland_pt[page].valid = 1;
-    idle_process->userland_pt[page].prot = PROT_READ | PROT_WRITE;
 
     LoadProgram(name, args, idle_process);
     idle_process->state = READY;
@@ -542,14 +565,7 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
         init_process->userland_pt[i].pfn = 0;
         init_process->userland_pt[i].valid = 0;
     }
-    // Init User stack
-    int frame = allocateFrame(empty_frames); // This is the highest available frame at the moment
-    TracePrintf(1, "Allocating frame for user stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
-    int page = (VMEM_1_SIZE >> PAGESHIFT) - 1;
-    init_process->userland_pt[page].pfn = frame;
-    init_process->userland_pt[page].valid = 1;
-    init_process->userland_pt[page].prot = PROT_READ | PROT_WRITE;
-    
+
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     LoadProgram(name, args, init_process);

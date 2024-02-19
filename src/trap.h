@@ -7,9 +7,7 @@
  * 
  */
 
-#ifndef YALNIX_TRAPS_H
-#define YALNIX_TRAPS_H
-
+#include "globals.h"
 #include <hardware.h>
 
 void TrapKernel(UserContext *user_context);
@@ -22,4 +20,3 @@ void TrapTTYTransmit(UserContext *user_context);
 void TrapDisk(UserContext *user_context);
 void TrapElse(UserContext *user_context);
 
-#endif /* YALNIX_TRAPS_H */

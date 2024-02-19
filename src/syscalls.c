@@ -8,6 +8,7 @@
  */
 
 #include <hardware.h>
+#include "syscalls.h"
 #include "kernel.h"
 
 // input: pcb

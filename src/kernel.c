@@ -94,7 +94,9 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     empty_frames = createQueue();
     for (int i = 0; i < (int)(pmem_size / PAGESIZE); i++)
     {
-        if (enqueueHead(empty_frames, &i, sizeof(int)) == -1)
+        int* frame_int = malloc(sizeof(int));
+        frame_int = memcpy(frame_int, &i, sizeof(int));
+        if (enqueueHead(empty_frames, frame_int) == -1)
         {
             TracePrintf(1, "Error: Could not enqueue frame %d into empty_frames\n", i);
         }
@@ -138,7 +140,6 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
     // interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
     interrupt_vector_tbl[TRAP_CLOCK] = Checkpoint3TrapClock;
-
     // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
     // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
     // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
@@ -188,13 +189,13 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name); // Calls KCCopy pid 0
 
     idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name); // Joins after
-    enqueue(ready_queue, init_process, sizeof(pcb_t));
+    enqueue(ready_queue, init_process);
 
-    // if (cmd_args[0] != NULL)
-    // {
-    //     init_process_name = cmd_args[0];
+    if (cmd_args[0] != NULL)
+    {
+        init_process_name = cmd_args[0];
 
-    // }
+    }
 
     // Set uctxt to init so that the kernel knows to run
     init_process->state = RUNNING;
@@ -204,13 +205,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     uctxt->sp = current_process->user_c.sp;
     uctxt->pc = current_process->user_c.pc;
-    // WriteRegister(REG_PTBR1, (unsigned int)(current_process->userland_pt));
-    // WriteRegister(REG_PTLR1, MAX_PT_LEN);
     
     KernelContextSwitch(KCCopy, init_process, NULL);
-
-    TracePrintf(1, "KernelStart: about to call KernelContextSwitch\n");
-    // KernelContextSwitch(KCSwitch, NULL, idle_process);
 }
 
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p)
@@ -265,6 +261,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
 
     WriteRegister(REG_PTBR1, (unsigned int)(current_process->userland_pt));
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
+    
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     // Return the next process's kernel context
@@ -361,7 +358,7 @@ int deallocateFrame(int frame_index)
      * Add a node with frame_index to empty_frames
      * NOTE: user is responsible for flushing TLB after calling!
      */
-    if (enqueue(empty_frames, &frame_index, sizeof(int)) == -1)
+    if (enqueue(empty_frames, &frame_index) == -1)
     {
         return ERROR;
     }
@@ -392,11 +389,11 @@ int runProcess()
     }
     if (current_process->state == RUNNING)
     {
-        enqueue(ready_queue, current_process, sizeof(pcb_t));
+        enqueue(ready_queue, current_process);
     }
     else if (current_process->state == DEAD)
     {
-        enqueue(current_process->parent->zombies, current_process, sizeof(pcb_t));
+        enqueue(current_process->parent->zombies, current_process);
     }
     TracePrintf(1, "About to call KernelContextSwitch\n");
 
@@ -476,9 +473,9 @@ int SetKernelBrk(void *addr)
                 {
                     return ERROR;
                 }
-                kernel_pt[frame_index].pfn = frame_index;
-                kernel_pt[frame_index].valid = 1;
-                kernel_pt[frame_index].prot = PROT_READ | PROT_WRITE;
+                kernel_pt[i].pfn = frame_index;
+                kernel_pt[i].valid = 1;
+                kernel_pt[i].prot = PROT_READ | PROT_WRITE;
                 TracePrintf(1, "Allocated frame %d for kernel_pt at memory address %p\n", frame_index, frame_index << PAGESHIFT);
             }
             kernel_brk = UP_TO_PAGE(addr);
@@ -546,7 +543,7 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
         int frame = allocateFrame(empty_frames);
-        TracePrintf(1, "hereAllocating frame for kernel stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
+        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
         if (frame == -1)
         {
             TracePrintf(1, "Out of physical memory.\n");
@@ -558,7 +555,7 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     // Init region 1 page table for init process
-    TracePrintf(1, "Idle process region 1 page table init start\n");
+    TracePrintf(1, "Init process region 1 page table init start\n");
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
         init_process->userland_pt[i].pfn = 0;
@@ -622,6 +619,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     /*
      * Open the executable file
      */
+    TracePrintf(1, "Loaasdfam: opening file '%s'\n", name);
     if ((fd = open(name, O_RDONLY)) < 0)
     {
         TracePrintf(0, "LoadProgram: can't open file '%s'\n", name);
@@ -908,9 +906,11 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
 void Checkpoint3TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
+    enqueue(ready_queue, current_process);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
+    
     /**
      * 1. Increment clock (if we go with a global clock)
      * 2. Check delay queue, find all processes that are ready to be woken up

@@ -90,7 +90,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     }
 
     // Optimization: we can improve efficiency by doing one pass through the linked list after this, and removing all nodes we wanna remove
-    for (int k = _first_kernel_data_page; k < _orig_kernel_brk_page + 1; k++)
+    for (int k = _first_kernel_data_page; k < kernel_brk >> PAGESHIFT; k++)
     {
         TracePrintf(1, "Allocating frame for kernel data, frame: %d, mem: %p\n", k, k << PAGESHIFT);
         unsigned long pt_index = removeFrameNode(empty_frames, k);
@@ -440,7 +440,7 @@ int SetKernelBrk(void *addr)
             TracePrintf(1, "ReadRegister(REG_VM_ENABLE): %d\n", ReadRegister(REG_VM_ENABLE));
             for (int i = bottom_page_index; i < top_page_index; i++)
             {
-                int frame_index = removeFrameNode(empty_frames, i); // Allocate the relevant frame
+                int frame_index = allocateFrame(); // Allocate the relevant frame
                 if (frame_index == -1)
                 {
                     return ERROR;

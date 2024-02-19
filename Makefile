@@ -13,7 +13,7 @@ K_SRC_DIR = ./src
 
 # What are the kernel c and include files?
 K_SRCS = kernel.c ../lib/queue.c syscalls.c trap.c
-K_INCS = ../lib/queue.h kernel.h syscalls.h trap.h
+K_INCS = ../lib/queue.h kernel.h syscalls.h trap.h globals.h
 
 # Where's your user source?
 U_SRC_DIR = ./test

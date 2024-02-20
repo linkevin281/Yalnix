@@ -4,10 +4,38 @@
  * CS58 - Operating Systems 24W
  *
  * trap.c
- * 
+ *
  */
 
 #include <hardware.h>
+#include <yalnix.h>
+/* Creates a new process that is a copy of the calling process. */
+int Y_Fork(void);
+/* Replaces the currently running process with a new process image. */
+int Y_Exec(char *filename, char *argv[]);
+/* Terminates the calling process with exit code {status} */
+int Y_Exit(int status);
+/* Waits for a child process to terminate, returns the child's PID and stores status at ptr. */
+int Y_Wait(int *status);
+/* Returns the PID of the calling process. */
+int Y_Getpid(void);
+/* Changes the location of the program break. */
+int Y_Brk(void *addr);
+/* Delays the calling process for a specified number of clock ticks. */
+int Y_Delay(int clock_ticks);
+int Y_Ttyread(int tty_id, void *buf, int len);
+int Y_Ttywrite(int tty_id, void *buf, int len);
+int Y_Pipeinit(int *pipe_idp);
+int Y_Piperead(int pipe_id, void *buf, int len);
+int Y_Pipewrite(int pipe_id, void *buf, int len);
+int Y_LockInit(int *lock_idp);
+int Y_Acquire(int lock_id);
+int Y_Release(int lock_id);
+int Y_CvarInit(int *cvar_idp);
+int Y_CvarSignal(int cvar_id);
+int Y_CvarBroadcast(int cvar_id);
+int Y_Cvarwait(int cvar_id, int lock_id);
+int Y_Reclaim(int id);
 
 void TrapKernel(UserContext *user_context)
 {
@@ -18,7 +46,24 @@ void TrapKernel(UserContext *user_context)
      * 3. Use the syscall code to call the relevant syscall
      * 4. Restore user context
      * 5. Return to user mode, return value in r0
-    */
+     */
+
+    int code = user_context->code;
+
+    switch (code)
+    {
+    case YALNIX_FORK:
+        user_context->regs[0] = Y_Fork();
+        break;
+    case YALNIX_EXEC:
+        user_context->regs[0] = Y_Exec((char *)user_context->regs[1], (char **)user_context->regs[2]);
+        break;
+    case YALNIX_GETPID:
+        user_context->regs[0] = Y_Getpid();
+        break;
+    default:
+        break;
+    }
 }
 
 void TrapClock(UserContext *user_context)
@@ -30,7 +75,7 @@ void TrapClock(UserContext *user_context)
      *       a. This delay queue is sorted by delay()
      * 3. Move these processes from delay queue to ready queue
      * 4. return to user mode
-    */
+     */
 }
 
 void TrapIllegal(UserContext *user_context)
@@ -38,7 +83,7 @@ void TrapIllegal(UserContext *user_context)
     /**
      * 1. Kill cur process with Y_Exit(ILLEGAL_INSTRUCTION)
      * 2. Return to user mode
-    */
+     */
 }
 
 void TrapMemory(UserContext *user_context)
@@ -49,17 +94,16 @@ void TrapMemory(UserContext *user_context)
      * 3. If address not mapped code, we need to map it because the user thinks it exists
      *    a. Grow stack to this address it doesnt pass heap
      *    b. But I think if it passes the heap, it probably was a valid address?
-    */
+     */
 }
 
 void TrapMath(UserContext *user_context)
 {
     /**
      * 1. Kill cur process with Y_Exit(FLOATING_POINT_EXCEPTION)
-     * 
-    */   
+     *
+     */
 }
-
 
 void TrapTTYReceive(UserContext *user_context)
 {
@@ -67,23 +111,23 @@ void TrapTTYReceive(UserContext *user_context)
      * while there are more bytes to be read in:
      *      Allocate buf of size MAXIMUM_TERMINAL_INPUT on kernel heap
      *      Make linked list node storing the buf, add it to relevant user's terminal input buffer
-     *      Execute ttyReceive machine instruction to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT. 
-     *      
-    */
+     *      Execute ttyReceive machine instruction to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT.
+     *
+     */
 }
 
 void TrapTTYTransmit(UserContext *user_context)
 {
     /**
      * Set can_transmit_to_terminal to true for the relevant terminal
-    */
+     */
 }
 
 void TrapDisk(UserContext *user_context)
 {
     /**
      * 1. NOT USED FOR NOW
-    */
+     */
 }
 
 void TrapElse(UserContext *user_context)
@@ -91,5 +135,5 @@ void TrapElse(UserContext *user_context)
     TracePrintf(1, "TRAPPPPP: General Exception Trap.\n");
     /**
      * 1. Kill cur process with Y_Exit(GENERAL_EXCEPTION)
-    */
+     */
 }

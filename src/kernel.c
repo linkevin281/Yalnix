@@ -185,28 +185,28 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     // Init and Idle Process
     char *idle_process_name = "./test/idle";
     char *init_process_name = "./test/init";
+    if (cmd_args[0] != NULL)
+    {
+        init_process_name = cmd_args[0];
+    }
+    char *pid_process_name = "./test/pid";
 
     pcb_t *init_process = initProcess(uctxt, cmd_args, init_process_name);
+    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
 
-    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);\
+
     current_process = idle_process;
+    
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
     enqueue(ready_queue, init_process);
 
-    if (cmd_args[0] != NULL)
-    {
-        init_process_name = cmd_args[0];
-
-    }
-
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
     TracePrintf(1, "SP and PC of init: %p, %p\n", init_process->user_c.sp, init_process->user_c.pc);
     TracePrintf(1, "SP and PC of idle: %p, %p\n", idle_process->user_c.sp, idle_process->user_c.pc);
-    
+        
     KernelContextSwitch(KCCopy, init_process, NULL);
-    
     uctxt->sp = current_process->user_c.sp;
     uctxt->pc = current_process->user_c.pc;
 }

@@ -70,6 +70,7 @@ int Y_Getpid()
      * Using curr_process variable in kernel, get the pcb of the current process
      * Return the pid of the current process from this pcb
      */
+    TracePrintf(1, "SYSCALL: Y_Getpid\n");
     return current_process->pid;
 }
 

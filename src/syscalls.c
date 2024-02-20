@@ -129,7 +129,7 @@ int Y_Brk(void *addr)
 }
 
 
-int Y_Delay(int clock_ticks)
+int Y_Delay(int num_ticks)
 {
     /**
      * Get PCB of current process from kernel
@@ -137,9 +137,8 @@ int Y_Delay(int clock_ticks)
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
      */
-
-    current_process->ticks_delayed = clock_ticks;
-    enqueue(delay_queue, current_process);
+    current_process->delayed_until = clock_ticks + num_ticks;
+    enqueueDelayQueue(delay_queue, current_process);
     runProcess();
     return 0;
 }

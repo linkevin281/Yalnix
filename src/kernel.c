@@ -902,6 +902,8 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
 void Checkpoint3TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
+    // increment number of clock ticks
+    clock_ticks++;
     current_process->state = READY;
     TracePrintf(1, "Target. PC and SP going in: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));

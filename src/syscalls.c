@@ -89,43 +89,46 @@ int Y_Brk(void *addr)
      * 4. Set brk to addr
     */
 
-    // if (addr > current_process->user_c.sp - PAGESIZE)
-    // {
-    //     return ERROR;
-    // }
-    // int addr_page = DOWN_TO_PAGE(addr);
+    // return error if addr > stack pointer
+    if (addr > current_process->user_c.sp)
+    {
+        return ERROR;
+    }
 
-    // // Free all frames from addr to brk
-    // if (addr < current_process->brk)
-    // {
-    //     for (int i = DOWN_TO_PAGE(current_process->brk) << PAGESHIFT; i > addr_page; i--)
-    //     {
-    //         if (i < current_process->user_c.sp - PAGESIZE)
-    //         {
-    //             deallocateFrame(i);
-    //         }
-    //     }
-    // }
-    // else
-    // {
-    //     for (int i = UP_TO_PAGE(current_process->brk) << PAGESHIFT; i < addr_page; i++)
-    //     {
-    //         if (i < current_process->user_c.sp - PAGESIZE)
-    //         {
-    //             int frame = allocateFrame(i);
-    //             if (frame == ERROR)
-    //             {
-    //                 return ERROR;
-    //             }
-    //             current_process->userland_pt[i >> PAGESHIFT].pfn = frame;
-    //             current_process->userland_pt[i >> PAGESHIFT].valid = 1;
-    //             current_process->userland_pt[i >> PAGESHIFT].prot = PROT_READ | PROT_WRITE;
-    //         }
-    //     }
-    // }
-    // current_process->brk = addr;
-    // return 0;
+    //set bottom of the red zone, which is the highest the brk can possibly be
+    int bottom_of_red_zone_page = ((DOWN_TO_PAGE(current_process->user_c.sp)) - PAGESIZE) >> PAGESHIFT;
+
+    // If addr below brk, free all frames from addr to brk
+    if ((unsigned int) addr < current_process->brk)
+    {
+        for (int i = UP_TO_PAGE(addr) >> PAGESHIFT; i < current_process->brk >> PAGESHIFT; i++)
+        {
+                deallocateFrame(i);
+        }
+    }
+    else if (((unsigned int)addr > current_process->brk))
+    {
+        for (int i = current_process->brk >> PAGESHIFT; i < UP_TO_PAGE(addr) >> PAGESHIFT; i++)
+        {   
+            // if we've gone too far and encroach on stack pointer, error
+            if (i > bottom_of_red_zone_page){
+                return ERROR;
+            }
+            int frame_index = allocateFrame();
+            if (frame_index == -1)
+            {
+                return ERROR;
+            }
+            current_process->userland_pt[i].pfn = frame_index;
+            current_process->userland_pt[i].prot = PROT_READ | PROT_WRITE;
+            current_process->userland_pt[i].valid = 1;
+        }
+    }
+    current_process->brk = UP_TO_PAGE(addr);
+    return 0;
 }
+
+
 int Y_Delay(int clock_ticks)
 {
     /**

@@ -22,7 +22,7 @@ int Y_Getpid(void);
 /* Changes the location of the program break. */
 int Y_Brk(void *addr);
 /* Delays the calling process for a specified number of clock ticks. */
-int Y_Delay(int clock_ticks);
+int Y_Delay(int num_ticks);
 int Y_Ttyread(int tty_id, void *buf, int len);
 int Y_Ttywrite(int tty_id, void *buf, int len);
 int Y_Pipeinit(int *pipe_idp);

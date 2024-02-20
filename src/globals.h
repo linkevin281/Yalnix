@@ -30,7 +30,7 @@ typedef struct pcb {
     int pid;
     pcb_t *parent;
     int exit_status; // if exited, this contains exit status.
-    int ticks_delayed; //number of ticks until we can move this pcb out of delay queue
+    int delayed_until; // time this pcb is delayed until
     State_t state;
     Queue_t *children;
     Queue_t *zombies;

@@ -181,6 +181,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     // Initialize queues
 
     ready_queue = createQueue();
+    delay_queue = createQueue();
 
     // Init and Idle Process
     char *idle_process_name = "./test/idle";
@@ -368,8 +369,15 @@ int runProcess()
      * Change current_process to the pcb of to_switch
      */
     TracePrintf(1, "Queue size: %d\n", getSize(ready_queue));
+    pcb_t *next;
+    // if it's time to pop something off the delay queue, do so
+    if(getSize(delay_queue) > 0 && (((pcb_t*)delay_queue->head->data)->delayed_until <= clock_ticks)){
+        next = (pcb_t*) dequeueHead(delay_queue)->data;
+    }
+    else {
+        next = (pcb_t *)dequeue(ready_queue)->data;
+    }
 
-    pcb_t *next = (pcb_t *)dequeue(ready_queue)->data;
     if (next == NULL)
     {
         TracePrintf(1, "No process to run\n");
@@ -558,7 +566,7 @@ pcb_t *createPCB()
     pcb_t *pcb = malloc(sizeof(pcb_t));
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
-    pcb->ticks_delayed = 0;
+    pcb->delayed_until = 0;
     pcb->state = READY;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
@@ -901,4 +909,28 @@ void Checkpoint3TrapClock(UserContext *user_context)
      * 3. Move these processes from delay queue to ready queue
      * 4. return to user mode
      */
+}
+
+// to enqueue a pcb in the delay queue
+// pcb with smallest end time is at head
+// return 0 on success, -1 on error
+int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb){
+    if (pcb == NULL)
+    {
+        return -1;
+    }
+
+    Node_t *node = createNode(pcb);
+
+    Node_t* curr = queue->head;
+    Node_t* prev = NULL;
+    while((((pcb_t*)node->data)->delayed_until > ((pcb_t*)curr->data)->delayed_until)){
+        prev = curr;
+        curr = curr->next;
+    }
+    
+    // splice in the node
+    node->next = curr;
+    prev->next = node;
+    return 0;
 }

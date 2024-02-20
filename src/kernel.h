@@ -26,5 +26,6 @@ pcb_t *initProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *createPCB();
 int LoadProgram(char *name, char *args[], pcb_t *pcb);
 void Checkpoint3TrapClock(UserContext *user_context);
+int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb);
 
 #endif

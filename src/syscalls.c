@@ -89,42 +89,42 @@ int Y_Brk(void *addr)
      * 4. Set brk to addr
     */
 
-    if (addr > current_process->user_c.sp - PAGESIZE)
-    {
-        return ERROR;
-    }
-    int addr_page = DOWN_TO_PAGE(addr);
+    // if (addr > current_process->user_c.sp - PAGESIZE)
+    // {
+    //     return ERROR;
+    // }
+    // int addr_page = DOWN_TO_PAGE(addr);
 
-    // Free all frames from addr to brk
-    if (addr < current_process->brk)
-    {
-        for (int i = DOWN_TO_PAGE(current_process->brk) << PAGESHIFT; i > addr_page; i--)
-        {
-            if (i < current_process->user_c.sp - PAGESIZE)
-            {
-                deallocateFrame(i);
-            }
-        }
-    }
-    else
-    {
-        for (int i = UP_TO_PAGE(current_process->brk) << PAGESHIFT; i < addr_page; i++)
-        {
-            if (i < current_process->user_c.sp - PAGESIZE)
-            {
-                int frame = allocateFrame(i);
-                if (frame == ERROR)
-                {
-                    return ERROR;
-                }
-                current_process->userland_pt[i >> PAGESHIFT].pfn = frame;
-                current_process->userland_pt[i >> PAGESHIFT].valid = 1;
-                current_process->userland_pt[i >> PAGESHIFT].prot = PROT_READ | PROT_WRITE;
-            }
-        }
-    }
-    current_process->brk = addr;
-    return 0;
+    // // Free all frames from addr to brk
+    // if (addr < current_process->brk)
+    // {
+    //     for (int i = DOWN_TO_PAGE(current_process->brk) << PAGESHIFT; i > addr_page; i--)
+    //     {
+    //         if (i < current_process->user_c.sp - PAGESIZE)
+    //         {
+    //             deallocateFrame(i);
+    //         }
+    //     }
+    // }
+    // else
+    // {
+    //     for (int i = UP_TO_PAGE(current_process->brk) << PAGESHIFT; i < addr_page; i++)
+    //     {
+    //         if (i < current_process->user_c.sp - PAGESIZE)
+    //         {
+    //             int frame = allocateFrame(i);
+    //             if (frame == ERROR)
+    //             {
+    //                 return ERROR;
+    //             }
+    //             current_process->userland_pt[i >> PAGESHIFT].pfn = frame;
+    //             current_process->userland_pt[i >> PAGESHIFT].valid = 1;
+    //             current_process->userland_pt[i >> PAGESHIFT].prot = PROT_READ | PROT_WRITE;
+    //         }
+    //     }
+    // }
+    // current_process->brk = addr;
+    // return 0;
 }
 int Y_Delay(int clock_ticks)
 {
@@ -136,7 +136,7 @@ int Y_Delay(int clock_ticks)
      */
 
     current_process->ticks_delayed = clock_ticks;
-    enqueue(delay_queue, current_process, sizeof(pcb_t));
+    enqueue(delay_queue, current_process);
     runProcess();
     return 0;
 }

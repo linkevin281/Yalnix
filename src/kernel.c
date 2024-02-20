@@ -202,11 +202,13 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     current_process = idle_process;
 
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
-
-    uctxt->sp = current_process->user_c.sp;
-    uctxt->pc = current_process->user_c.pc;
+    TracePrintf(1, "SP and PC of init: %p, %p\n", init_process->user_c.sp, init_process->user_c.pc);
+    TracePrintf(1, "SP and PC of idle: %p, %p\n", idle_process->user_c.sp, idle_process->user_c.pc);
     
     KernelContextSwitch(KCCopy, init_process, NULL);
+    
+    uctxt->sp = current_process->user_c.sp;
+    uctxt->pc = current_process->user_c.pc;
 }
 
 KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p)
@@ -258,10 +260,8 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     TracePrintf(1, "Kernel stack copied\n");
     TracePrintf(1, "My kernel pfns: %d, %d\n", kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT)].pfn, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1].pfn);
     current_process = next_pcb;
-
-    WriteRegister(REG_PTBR1, (unsigned int)(current_process->userland_pt));
+    WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
-    
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     // Return the next process's kernel context
@@ -293,7 +293,7 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
-    // Copy kernel stack PT into  the new process's pcb
+    // Copy kernel stack PT into the new process's pcb
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
         // map page to same address as kernel stack page
@@ -387,13 +387,16 @@ int runProcess()
         TracePrintf(1, "No process to run\n");
         return ERROR;
     }
-    if (current_process->state == RUNNING)
+    if (current_process->state == READY)
     {
         enqueue(ready_queue, current_process);
     }
     else if (current_process->state == DEAD)
     {
         enqueue(current_process->parent->zombies, current_process);
+    }
+    else {
+        TracePrintf(1, "BAD STATE, NOT PREPARED: current process is in state %d\n", current_process->state);
     }
     TracePrintf(1, "About to call KernelContextSwitch\n");
 
@@ -513,7 +516,7 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     LoadProgram(name, args, idle_process);
-    idle_process->state = READY;
+    idle_process->state = RUNNING;
 
     // WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
     // WriteRegister(REG_PTLR1, MAX_PT_LEN);
@@ -564,16 +567,9 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+    init_process->state = READY;
 
     LoadProgram(name, args, init_process);
-    // KernelContextSwitch(KCCopy, init_process, NULL);
-
-    TracePrintf(1, "Stack p address: %p\n", init_process->user_c.sp);
-
-    // TracePrintf(1, "About to clone idle into init\n");
-    // KernelContextSwitch(KCCopy, init_process, NULL);
-    // TracePrintf(0, "Back from the clone---am I idle or init?\n");
-
     return init_process;
 }
 
@@ -906,10 +902,13 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
 void Checkpoint3TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
-    enqueue(ready_queue, current_process);
+    current_process->state = READY;
+    TracePrintf(1, "Target. PC and SP going in: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
+    current_process->state = RUNNING;
+    TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);
     
     /**
      * 1. Increment clock (if we go with a global clock)

@@ -186,9 +186,13 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     char *idle_process_name = "./test/idle";
     char *init_process_name = "./test/init";
 
-    pcb_t *init_process = initInitProcess(uctxt, cmd_args, init_process_name); // Calls KCCopy pid 0
+    pcb_t *init_process = initProcess(uctxt, cmd_args, init_process_name);
 
-    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name); // Joins after
+    idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);\
+    current_process = idle_process;
+    WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
+    WriteRegister(REG_PTLR1, MAX_PT_LEN);
+
     enqueue(ready_queue, init_process);
 
     if (cmd_args[0] != NULL)
@@ -196,10 +200,6 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         init_process_name = cmd_args[0];
 
     }
-
-    // Set uctxt to init so that the kernel knows to run
-    init_process->state = RUNNING;
-    current_process = idle_process;
 
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
     TracePrintf(1, "SP and PC of init: %p, %p\n", init_process->user_c.sp, init_process->user_c.pc);
@@ -267,17 +267,18 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     // Return the next process's kernel context
     return &(next_pcb->kernel_c);
 }
+
+/**
+ * - KCCopy will copy kc_in into the new process's pcb
+ *
+ * 1. Copy KC into the new process's pcb
+ * 2. Copy kernel stack PT into the new process's pcb
+ * 3. Flush the TLB
+ * 4. Return the new process's kernel context
+ *
+ */
 KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 {
-    /**
-     * - KCCopy will copy kc_in into the new process's pcb
-     *
-     * 1. Copy KC into the new process's pcb
-     * 2. Copy kernel stack PT into the new process's pcb
-     * 3. Flush the TLB
-     * 4. Return the new process's kernel context
-     *
-     */
     pcb_t *new_pcb = (pcb_t *)new_pcb_p;
 
     // Copy KC into the new process's pcb
@@ -307,23 +308,10 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
     
         TracePrintf(1, "Just copied page %d into temp page %d\n", first_page_in_kstack + i, temp_base_page);
-
-        // kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT)+i].pfn = new_pcb->kernel_stack_pt[i].pfn;
     }
-    // WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
     TracePrintf(1, "Kernel stack copied\n");
-    kernel_pt[temp_base_page].valid = 0;
+    kernel_pt[temp_base_page].valid = 0; // Set Temp Page to Invalid
 
-    // write kernel stack into kernel pt
-    // for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
-    // {
-    //     kernel_pt[first_page_in_kstack + i].pfn = new_pcb->kernel_stack_pt[i].pfn;
-    //     kernel_pt[first_page_in_kstack + i].valid = new_pcb->kernel_stack_pt[i].valid;
-    //     kernel_pt[first_page_in_kstack + i].prot = new_pcb->kernel_stack_pt[i].prot;
-    // }
-
-    // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     return kc_in;
@@ -490,59 +478,49 @@ int SetKernelBrk(void *addr)
 
 pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 {
+    TracePrintf(1, "FUNCTION CALL: initIdleProcess\n");
     pcb_t *idle_process = createPCB();
-    TracePrintf(1, "Idle process created %d\n", idle_process->pid);
+    memcpy(&idle_process->user_c, uctxt, sizeof(UserContext));
 
-    TracePrintf(1, "Idle process created\n");
-    memcpy(&idle_process->user_c, uctxt, sizeof(UserContext)); // For after checkpoint 2
-
-    WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
-    WriteRegister(REG_PTLR1, MAX_PT_LEN);
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
+        // Note: Idle process uses the same kernel stack as the kernel
         idle_process->kernel_stack_pt[i].pfn = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn;
         idle_process->kernel_stack_pt[i].valid = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid;
         idle_process->kernel_stack_pt[i].prot = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].prot;
     }
 
-    // Init region 1 page table for idle process
+    // Initalize Region 1 Page Table
     TracePrintf(1, "Idle process region 1 page table init start\n");
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
         idle_process->userland_pt[i].pfn = 0;
-        idle_process->userland_pt[i].pfn = 0;
         idle_process->userland_pt[i].valid = 0;
+        idle_process->userland_pt[i].prot = PROT_NONE;
     }
 
     LoadProgram(name, args, idle_process);
-    idle_process->state = RUNNING;
-
-    // WriteRegister(REG_PTBR1, (unsigned int)(idle_process->userland_pt));
-    // WriteRegister(REG_PTLR1, MAX_PT_LEN);
-
-    // Checkpoint 2 code DELETE LATER
-    // Since we're 32-bit, we need to set the kernel stack pointer to 4 bytes below the top of the kernel stack
-    // uctxt->sp = (void *)((page << PAGESHIFT) + PAGESIZE - 4);
-    // uctxt->pc = (void *)DoIdle;
-    // WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
-    // Checkpoint 3 code
-    // current_process = idle_process;
-
+    idle_process->state = RUNNING; // The idle process is FIRST RUNNING
+    
+    TracePrintf(1, "FUNCTION RETURN: initIdleProcess\n");
     return idle_process;
 }
 
-pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
+/**
+ * Initalize a new process. This function will:
+ * 1. Create a new PCB
+ * 2. Copy the user context into the PCB
+ * 3. Load the program into the PCB
+ * 4. Return the PCB
+*/
+pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 {
+    TracePrintf(1, "FUNCTION CALL: initProcess\n");
+    pcb_t *pcb = createPCB();
+    memcpy(&pcb->user_c, uctxt, sizeof(UserContext));
 
-    pcb_t *init_process = createPCB();
-    TracePrintf(1, "Init process created %d\n", init_process->pid);
-    // copy user context passed in to our pcb
-    memcpy(&init_process->user_c, uctxt, sizeof(UserContext));
-    
-    // for kernel stack
-    int top_page = (VMEM_1_SIZE >> PAGESHIFT);
+    // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
         int frame = allocateFrame(empty_frames);
@@ -552,38 +530,42 @@ pcb_t *initInitProcess(UserContext *uctxt, char *args[], char *name)
             TracePrintf(1, "Out of physical memory.\n");
             return NULL;
         }
-        init_process->kernel_stack_pt[i].pfn = frame;
-        init_process->kernel_stack_pt[i].valid = 1;
-        init_process->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+        pcb->kernel_stack_pt[i].pfn = frame;
+        pcb->kernel_stack_pt[i].valid = 1;
+        pcb->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
     }
 
-    // Init region 1 page table for init process
-    TracePrintf(1, "Init process region 1 page table init start\n");
+    // Setup Region 1 Page Table
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
-        init_process->userland_pt[i].pfn = 0;
-        init_process->userland_pt[i].pfn = 0;
-        init_process->userland_pt[i].valid = 0;
+        pcb->userland_pt[i].pfn = 0;
+        pcb->userland_pt[i].valid = 0;
+        pcb->userland_pt[i].prot = PROT_NONE;
     }
 
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-    init_process->state = READY;
-
-    LoadProgram(name, args, init_process);
-    return init_process;
+    LoadProgram(name, args, pcb);
+    TracePrintf(1, "FUNCTION RETURN: initProcess\n");
+    return pcb;
 }
 
+/**
+ * Create a new PCB. This function will also initalize the PCB's kernel stack and region 1 page table.
+*/
 pcb_t *createPCB()
 {
+    TracePrintf(1, "FUNCTION CALL: createPCB\n");
     pcb_t *pcb = malloc(sizeof(pcb_t));
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
     pcb->ticks_delayed = 0;
-    pcb->state = RUNNING;
+    pcb->state = READY;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
     pcb->waiters = createQueue();
     pcb->brk = 0;
+
+    TracePrintf(1, "FUNCTION RETURN: createPCB\n");
     return pcb;
 }
 

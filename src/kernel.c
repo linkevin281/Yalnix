@@ -92,11 +92,11 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     // 1. Create Frame Queue
     // incrementing backwards, so that lowest-addresed frames are at front of the queue
     empty_frames = createQueue();
-    for (int i = 0; i < (int)(pmem_size / PAGESIZE); i++)
+    for (int i = (int)(pmem_size / PAGESIZE)-1; i > -1;  i--)
     {
         int* frame_int = malloc(sizeof(int));
         frame_int = memcpy(frame_int, &i, sizeof(int));
-        if (enqueueHead(empty_frames, frame_int) == -1)
+        if (enqueue(empty_frames, frame_int) == -1)
         {
             TracePrintf(1, "Error: Could not enqueue frame %d into empty_frames\n", i);
         }
@@ -370,9 +370,9 @@ int runProcess()
      */
     TracePrintf(1, "Queue size: %d\n", getSize(ready_queue));
     pcb_t *next;
-    // if it's time to pop something off the delay queue, do so
+    // if it's time to pop somethi fng off the delay queue, do so
     if(getSize(delay_queue) > 0 && (((pcb_t*)delay_queue->head->data)->delayed_until <= clock_ticks)){
-        next = (pcb_t*) dequeueHead(delay_queue)->data;
+        next = (pcb_t*)dequeue(delay_queue)->data;
     }
     else {
         next = (pcb_t *)dequeue(ready_queue)->data;
@@ -915,6 +915,7 @@ void Checkpoint3TrapClock(UserContext *user_context)
 // pcb with smallest end time is at head
 // return 0 on success, -1 on error
 int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb){
+    TracePrintf(1, "Enqueueing pcb with pid %d into delay queue\n", pcb->pid);
     if (pcb == NULL)
     {
         return -1;
@@ -922,15 +923,16 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb){
 
     Node_t *node = createNode(pcb);
 
-    Node_t* curr = queue->head;
-    Node_t* prev = NULL;
-    while((((pcb_t*)node->data)->delayed_until > ((pcb_t*)curr->data)->delayed_until)){
-        prev = curr;
+    Node_t* curr = queue->head->next;
+    while (curr->data != NULL && ((pcb_t*)node->data)->delayed_until > ((pcb_t*)curr->data)->delayed_until)
+    {
         curr = curr->next;
     }
-    
+
     // splice in the node
     node->next = curr;
-    prev->next = node;
+    node->prev = curr->prev;
+    curr->prev->next = node;
+    curr->prev = node;
     return 0;
 }

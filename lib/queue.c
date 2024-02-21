@@ -61,23 +61,6 @@ int enqueue(Queue_t *queue, void *data)
     return 0;
 }
 
-int enqueueHead(Queue_t *queue, void *data)
-{
-    Node_t *node = createNode(data);
-    if (node == NULL)
-    {
-        return -1;
-    }
-    
-    node->next = queue->tail;
-    node->prev = queue->tail->prev;
-    queue->tail->prev->next = node;
-    queue->tail->prev = node;
-
-    queue->size = queue->size + 1;
-    return 0;
-}
-
 // Remove item from tail, return NULL if failed
 Node_t *dequeue(Queue_t *queue)
 {
@@ -89,21 +72,6 @@ Node_t *dequeue(Queue_t *queue)
     Node_t *node = queue->tail->prev;
     queue->tail->prev = node->prev;
     node->prev->next = queue->tail;
-
-    queue->size = queue->size - 1;
-    return node;
-}
-
-Node_t *dequeueHead(Queue_t *queue)
-{
-    if (isEmpty(queue))
-    {
-        return NULL;
-    }
-
-    Node_t *node = queue->head->next;
-    queue->head->next = node->next;
-    node->next->prev = queue->head;
 
     queue->size = queue->size - 1;
     return node;
@@ -135,7 +103,7 @@ int removeFrameNode(Queue_t *queue, int frame_number)
 }
 
 // Function to get front of queue, returns NULL on fail
-Node_t *peekFront(Queue_t *queue)
+Node_t *peekHead(Queue_t *queue)
 {
     if (isEmpty(queue))
     {
@@ -161,7 +129,7 @@ Node_t *peekMulti(Queue_t *queue, int count)
 }
 
 // Function to get rear of queue, returns NULL on fail
-Node_t *peekRear(Queue_t *queue)
+Node_t *peekTail(Queue_t *queue)
 {
     if (isEmpty(queue))
     {

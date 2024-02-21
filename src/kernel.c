@@ -20,13 +20,13 @@
 #include <load_info.h>
 
 /* Queues to help indicate which resources are available (by index). */
-Queue_t* ready_queue;
-Queue_t* waiting_queue;
-Queue_t* delay_queue; // This will be sorted. 
-Queue_t* empty_locks;
-Queue_t* empty_cvars;
-Queue_t* empty_pipes;
-Queue_t* empty_frames; // to track free frames
+Queue_t *ready_queue;
+Queue_t *waiting_queue;
+Queue_t *delay_queue; // This will be sorted.
+Queue_t *empty_locks;
+Queue_t *empty_cvars;
+Queue_t *empty_pipes;
+Queue_t *empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
 Queue_t terminal_input_buffers[NUM_TERMINALS];
@@ -40,7 +40,7 @@ Cvar_t cvars[MAX_CVARS];
 
 pte_t kernel_pt[MAX_PT_LEN];
 
-void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
+void *interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
 int kernel_brk = 0;
 
@@ -94,9 +94,9 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     // 1. Create Frame Queue
     // incrementing backwards, so that lowest-addresed frames are at front of the queue
     empty_frames = createQueue();
-    for (int i = (int)(pmem_size / PAGESIZE)-1; i > -1;  i--)
+    for (int i = (int)(pmem_size / PAGESIZE) - 1; i > -1; i--)
     {
-        int* frame_int = malloc(sizeof(int));
+        int *frame_int = malloc(sizeof(int));
         frame_int = memcpy(frame_int, &i, sizeof(int));
         if (enqueue(empty_frames, frame_int) == -1)
         {
@@ -199,7 +199,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     init_process->parent = idle_process;
     current_process = idle_process;
-    
+
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
@@ -208,7 +208,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
     TracePrintf(1, "SP and PC of init: %p, %p\n", init_process->user_c.sp, init_process->user_c.pc);
     TracePrintf(1, "SP and PC of idle: %p, %p\n", idle_process->user_c.sp, idle_process->user_c.pc);
-        
+
     KernelContextSwitch(KCCopy, init_process, NULL);
     uctxt->sp = current_process->user_c.sp;
     uctxt->pc = current_process->user_c.pc;
@@ -241,7 +241,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     // Copy kernel stack PT from kernel_pt to the current process's pcb
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
-       
+
         TracePrintf(1, "Current kernel stack pfns, %d\n", kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].pfn);
         TracePrintf(1, "Next process kernel stack pfns, %d, %d\n", next_pcb->kernel_stack_pt[0].pfn, next_pcb->kernel_stack_pt[1].pfn);
         if (kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + i].valid != next_pcb->kernel_stack_pt[i].valid)
@@ -259,7 +259,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
 
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-    
+
     TracePrintf(1, "Kernel stack copied\n");
     TracePrintf(1, "My kernel pfns: %d, %d\n", kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT)].pfn, kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1].pfn);
     current_process = next_pcb;
@@ -309,7 +309,7 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 
         // copy ith page in stack into temp address
         memcpy((void *)(temp_base_page << PAGESHIFT), (void *)((first_page_in_kstack + i) << PAGESHIFT), PAGESIZE);
-    
+
         TracePrintf(1, "Just copied page %d into temp page %d\n", first_page_in_kstack + i, temp_base_page);
     }
     TracePrintf(1, "Kernel stack copied\n");
@@ -372,7 +372,7 @@ int runProcess()
      * Call KernelContextSwitch(KCSwitch) with to_switch, to switch this process in
      * Change current_process to the pcb of to_switch
      */
-    TracePrintf(1, "Queue size: %d\n", getSize(ready_queue));
+    TracePrintf(1, "FUNCTION CALL: runProcess\n");
     pcb_t *next;
     if(getSize(ready_queue) == 0) return 0;
     // if it's time to pop somethi fng off the delay queue, do so
@@ -380,26 +380,60 @@ int runProcess()
         next = (pcb_t*)dequeue(delay_queue)->data;
     }
     else {
-        TracePrintf(1, "we are in the right spot lfggggg!\n");
         next = (pcb_t *)dequeue(ready_queue)->data;
     }
 
-    if (current_process->state == READY)
+    // 1. Handle putting the current process on the correct queue.
+    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
+    switch (current_process->state)
     {
-        TracePrintf(1, "just enqueued process with pid %d\n", current_process->pid);
+    case RUNNING:
+        TracePrintf(1, "Placed Current Process { %s } on the ready queue because it was in state { %d }\n", current_process->name, current_process->state);
+        current_process->state = READY;
         enqueue(ready_queue, current_process);
-    }
-    else if (current_process->state == DEAD)
-    {
-        enqueue(current_process->parent->zombies, current_process);
-        TracePrintf(1, "Process with pid %d just was added to zombies queue of parent. Parent is %d\n", current_process->pid, current_process->parent->pid);
-    }
-    else {
+        break;
+    case READY:
+        TracePrintf(1, "Placed Current Process { %s } on the ready queue because it was in state { %d }\n", current_process->name, current_process->state);
+        enqueue(ready_queue, current_process);
+        break;
+    case LOCK_BLOCKED:
+        break;
+    case CVAR_BLOCKED:
+        break;
+    case PIPE_BLOCKED:
+        break;
+    case DELAYED:
+        TracePrintf(1, "Placed Current Process { %s } on the delay queue because it was in state { %d }\n", current_process->name, current_process->state);
+        enqueueDelayQueue(delay_queue, current_process);
+        break;
+    case DEAD:
+        // enqueue(current_process->parent->zombies, current_process); // This line is going to break because our init and idle process hvae no parent.
+        break;
+    default:
         TracePrintf(1, "BAD STATE, NOT PREPARED: current process is in state %d\n", current_process->state);
+        break;
     }
-    TracePrintf(1, "About to call KernelContextSwitch\n");
 
-    TracePrintf(1, "PID OF cur: %d, PID OF next: %d\n", current_process->pid, next->pid);
+    // 2. Handle putting any delayed processes on the ready queue
+    if (getSize(delay_queue) > 0)
+    {
+        TracePrintf(1, "There are delayed processes\n");
+        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
+        TracePrintf(1, "Checking on delayed process %s { %d }\n", delayed->name, delayed->pid);
+        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
+        {
+            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
+            Node_t *delayed_node = dequeue(delay_queue);
+            enqueue(ready_queue, delayed_node->data);
+            delayed = (pcb_t *)peekTail(delay_queue)->data;
+            TracePrintf(1, "Next delayed process: %s { %d }\n", delayed->name, delayed->pid);
+        }
+    }
+    TracePrintf(1, "No more delayed processes\n");
+    // 3. Grab the next process off the ready queue
+    next = (pcb_t *)dequeue(ready_queue)->data;
+
+    TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
 
     if (KernelContextSwitch(KCSwitch, current_process, next) == ERROR)
     {
@@ -490,7 +524,7 @@ int SetKernelBrk(void *addr)
 pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 {
     TracePrintf(1, "FUNCTION CALL: initIdleProcess\n");
-    pcb_t *idle_process = createPCB(NULL);
+    pcb_t *idle_process = createPCB("Idle", NULL);
     memcpy(&idle_process->user_c, uctxt, sizeof(UserContext));
 
     // Setup Kernel Stack
@@ -513,7 +547,7 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 
     LoadProgram(name, args, idle_process);
     idle_process->state = RUNNING; // The idle process is FIRST RUNNING
-    
+
     TracePrintf(1, "FUNCTION RETURN: initIdleProcess\n");
     return idle_process;
 }
@@ -524,11 +558,11 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
  * 2. Copy the user context into the PCB
  * 3. Load the program into the PCB
  * 4. Return the PCB
-*/
+ */
 pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 {
     TracePrintf(1, "FUNCTION CALL: initProcess\n");
-    pcb_t *pcb = createPCB(current_process);
+    pcb_t *pcb = createPCB("Init", NULL);
     memcpy(&pcb->user_c, uctxt, sizeof(UserContext));
 
     // Setup Kernel Stack
@@ -562,11 +596,13 @@ pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 
 /**
  * Create a new PCB. This function will also initalize the PCB's kernel stack and region 1 page table.
-*/
-pcb_t *createPCB(pcb_t* parent)
+ */
+pcb_t *createPCB(char* name, pcb_t* parent)
 {
     TracePrintf(1, "FUNCTION CALL: createPCB\n");
     pcb_t *pcb = malloc(sizeof(pcb_t));
+    pcb->name = malloc(sizeof(char) * 256);
+    strncpy(pcb->name, name, 255);
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->parent = parent;
     pcb->exit_status = 0;
@@ -898,14 +934,13 @@ void Checkpoint3TrapClock(UserContext *user_context)
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
     // increment number of clock ticks
     clock_ticks++;
-    current_process->state = READY;
     TracePrintf(1, "Target. PC and SP going in: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
     current_process->state = RUNNING;
     TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);
-    
+
     /**
      * 1. Increment clock (if we go with a global clock)
      * 2. Check delay queue, find all processes that are ready to be woken up
@@ -916,27 +951,30 @@ void Checkpoint3TrapClock(UserContext *user_context)
 }
 
 // to enqueue a pcb in the delay queue
-// pcb with smallest end time is at head
+// pcb with smallest end time is at tail
 // return 0 on success, -1 on error
-int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb){
+int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
+{
     TracePrintf(1, "Enqueueing pcb with pid %d into delay queue\n", pcb->pid);
     if (pcb == NULL)
     {
         return -1;
     }
-
     Node_t *node = createNode(pcb);
 
-    Node_t* curr = queue->head->next;
-    while (curr->data != NULL && ((pcb_t*)node->data)->delayed_until > ((pcb_t*)curr->data)->delayed_until)
+    Node_t *curr = peekTail(queue);
+    while (curr->data != NULL && ((pcb_t *)curr->data)->delayed_until > pcb->delayed_until)
     {
-        curr = curr->next;
+        curr = curr->prev;
     }
 
     // splice in the node
-    node->next = curr;
-    node->prev = curr->prev;
-    curr->prev->next = node;
-    curr->prev = node;
+    node->prev = curr;
+    node->next = curr->next;
+    curr->next->prev = node;
+    curr->next = node;
+    TracePrintf(1, "Target: queue size was: %d\n", queue->size);
+    queue->size++;
+    TracePrintf(1, "Target: queue size is now: %d\n", queue->size);
     return 0;
 }

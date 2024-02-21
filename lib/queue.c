@@ -105,10 +105,6 @@ int removeFrameNode(Queue_t *queue, int frame_number)
 // Function to get front of queue, returns NULL on fail
 Node_t *peekHead(Queue_t *queue)
 {
-    if (isEmpty(queue))
-    {
-        return NULL;
-    }
     return queue->head->next;
 }
 
@@ -131,15 +127,12 @@ Node_t *peekMulti(Queue_t *queue, int count)
 // Function to get rear of queue, returns NULL on fail
 Node_t *peekTail(Queue_t *queue)
 {
-    if (isEmpty(queue))
-    {
-        return NULL;
-    }
     return queue->tail->prev;
 }
 
 int getSize(Queue_t *queue)
 {
+    TracePrintf(1, "here\n");
     return queue->size;
 }
 

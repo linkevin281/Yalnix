@@ -56,6 +56,9 @@ void TrapKernel(UserContext *user_context)
 
     switch (code)
     {
+    case YALNIX_BRK:
+        Y_Brk((void*) user_context->regs[0]);
+        break;
     case YALNIX_FORK:
         user_context->regs[0] = Y_Fork();
         break;

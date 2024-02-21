@@ -7,7 +7,7 @@
  *
  */
 
-#include <hardware.h>
+#include <ykernel.h>
 #include "syscalls.h"
 #include "kernel.h"
 
@@ -141,27 +141,42 @@ int Y_Brk(void *addr)
      *          Map next page we need to this frame in the userland page table
      * 4. Set brk to addr
     */
-
+    TracePrintf(0, "In brk syscall\n");
+    TracePrintf(1, "addr is: %p\n", addr);
+    TracePrintf(1, "highest text addr: %p\n", current_process->highest_text_addr);
     // return error if addr > stack pointer
     if (addr > current_process->user_c.sp)
     {
+        TracePrintf(1, "attempting to allocate too much!\n");
         return ERROR;
     }
+    // return error if addr is too low
+    if((unsigned int) addr < current_process->highest_text_addr){
+        TracePrintf(1, "addr too lowwwwww wowowowowo\n");
+        return ERROR;
+    }
+
+    TracePrintf(1, "in brk, past error checks\n");
+
+    int adjusted_addr_page = (UP_TO_PAGE(addr) - VMEM_0_SIZE) >> PAGESHIFT;
+    TracePrintf(1, "Adjusted address page: %d\n", adjusted_addr_page);
 
     //set bottom of the red zone, which is the highest the brk can possibly be
     int bottom_of_red_zone_page = ((DOWN_TO_PAGE(current_process->user_c.sp)) - PAGESIZE) >> PAGESHIFT;
 
+    
+    
     // If addr below brk, free all frames from addr to brk
     if ((unsigned int) addr < current_process->brk)
     {
-        for (int i = UP_TO_PAGE(addr) >> PAGESHIFT; i < current_process->brk >> PAGESHIFT; i++)
+        for (int i = adjusted_addr_page; i < current_process->brk >> PAGESHIFT; i++)
         {
                 deallocateFrame(i);
         }
     }
     else if (((unsigned int)addr > current_process->brk))
     {
-        for (int i = current_process->brk >> PAGESHIFT; i < UP_TO_PAGE(addr) >> PAGESHIFT; i++)
+        for (int i = current_process->brk >> PAGESHIFT; i < adjusted_addr_page; i++)
         {   
             // if we've gone too far and encroach on stack pointer, error
             if (i > bottom_of_red_zone_page){
@@ -175,6 +190,7 @@ int Y_Brk(void *addr)
             current_process->userland_pt[i].pfn = frame_index;
             current_process->userland_pt[i].prot = PROT_READ | PROT_WRITE;
             current_process->userland_pt[i].valid = 1;
+            TracePrintf(1, "BRK: just allocated frame %d for page %d\n", frame_index, i);
         }
     }
     current_process->brk = UP_TO_PAGE(addr);

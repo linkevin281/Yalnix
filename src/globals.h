@@ -4,10 +4,7 @@
 #include <hardware.h>
 #include "../lib/queue.h"
 
-#define ERROR                       -1
-
 /* Exit Codes */
-#define KILL                        -9
 #define GENERAL_EXCEPTION           -66
 #define ILLEGAL_MEMORY              -131 
 #define ILLEGAL_INSTRUCTION         -132 // or 4?
@@ -41,6 +38,7 @@ typedef struct pcb {
     KernelContext kernel_c;
 
     int brk;
+    int highest_text_addr;
     pte_t userland_pt[MAX_PT_LEN]; 
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
 } pcb_t;

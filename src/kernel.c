@@ -633,6 +633,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     int stack_npg;
     long segment_size;
     char *argbuf;
+
     TracePrintf(1, "LoadProgram called with name: %s\n", name);
     /*
      * Open the executable file
@@ -665,6 +666,11 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     text_pg1 = (li.t_vaddr - VMEM_1_BASE) >> PAGESHIFT;
     data_pg1 = (li.id_vaddr - VMEM_1_BASE) >> PAGESHIFT;
     data_npg = li.id_npg + li.ud_npg;
+
+    // set the highest text address of the process, so we can ensure brk doesn't run into it later
+    proc->highest_text_addr = (text_pg1 + li.t_npg) << PAGESHIFT;
+
+
     /*
      *  Figure out how many bytes are needed to hold the arguments on
      *  the new stack that we are building.  Also count the number of
@@ -799,6 +805,9 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
      * ==>> These pages should be marked valid, with a protection of
      * ==>> (PROT_READ | PROT_WRITE).
      */
+    
+    // set brk for the process
+    proc->brk = (data_pg1 + data_npg) << PAGESHIFT;
     for (int i = data_pg1; i < data_pg1 + data_npg; i++)
     {
         int frame = allocateFrame();
@@ -818,6 +827,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
      * ==>> These pages should be marked valid, with a protection of
      * ==>> (PROT_READ | PROT_WRITE).
      */
+    
     for (int i = text_pg1; i < text_pg1 + li.t_npg; i++)
     {
         int frame = allocateFrame();

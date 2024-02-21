@@ -138,8 +138,10 @@ int Y_Delay(int num_ticks)
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
      */
+    TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
-    enqueueDelayQueue(delay_queue, current_process);
+    current_process->state = DELAYED;
+    TracePrintf(1, "SYSCALL: Y_Delay: Process name: %s is in state: %d\n", current_process->name, current_process->state);
     runProcess();
     return 0;
 }

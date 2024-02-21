@@ -27,6 +27,7 @@ typedef enum State {
 } State_t;
 
 typedef struct pcb {
+    char* name;
     int pid;
     pcb_t *parent;
     int exit_status; // if exited, this contains exit status.

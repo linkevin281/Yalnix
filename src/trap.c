@@ -60,6 +60,7 @@ void TrapKernel(UserContext *user_context)
         user_context->regs[0] = Y_Exec((char *)user_context->regs[1], (char **)user_context->regs[2]);
         break;
     case YALNIX_DELAY:
+        TracePrintf(1, "target: in delay with value %d, %d\n", (int)user_context->regs[0], (int)user_context->regs[1]);
         r_value = Y_Delay((int)user_context->regs[0]);
         break;
     case YALNIX_GETPID:

@@ -49,6 +49,7 @@ void TrapKernel(UserContext *user_context)
      */
 
     int code = user_context->code;
+    int r_value;
 
     switch (code)
     {
@@ -58,8 +59,11 @@ void TrapKernel(UserContext *user_context)
     case YALNIX_EXEC:
         user_context->regs[0] = Y_Exec((char *)user_context->regs[1], (char **)user_context->regs[2]);
         break;
+    case YALNIX_DELAY:
+        r_value = Y_Delay((int)user_context->regs[0]);
+        break;
     case YALNIX_GETPID:
-        user_context->regs[0] = Y_Getpid();
+        r_value = Y_Getpid();
         break;
     default:
         break;

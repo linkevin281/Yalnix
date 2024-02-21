@@ -65,6 +65,9 @@ void TrapKernel(UserContext *user_context)
     case YALNIX_GETPID:
         r_value = Y_Getpid();
         break;
+    case YALNIX_EXIT:
+        Y_Exit((int)user_context->regs[0]);
+        break;
     default:
         break;
     }

@@ -49,6 +49,7 @@ pcb_t *idle_process;
 
 // For delay and traps
 int clock_ticks = 0;
+int pmem_size_holder;
 
 void KernelStart(char *cmd_args[], unsigned int pmem_size,
                  UserContext *uctxt)
@@ -88,7 +89,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     TracePrintf(1, "KernelStart called: initial values \n pmem_size: %d\n _first_kernel_text_page: %d\n _first_kernel_data_page: %d\n _orig_kernel_brk_page: %d\n", pmem_size, _first_kernel_text_page, _first_kernel_data_page, _orig_kernel_brk_page);
     kernel_brk = _orig_kernel_brk_page << PAGESHIFT;
     TracePrintf(1, "KernelStart: kernel_brk: %p\n", kernel_brk);
-
+    // set pmem_size_holder
+    pmem_size_holder = pmem_size;
     // 1. Create Frame Queue
     // incrementing backwards, so that lowest-addresed frames are at front of the queue
     empty_frames = createQueue();
@@ -195,7 +197,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     pcb_t *init_process = initProcess(uctxt, cmd_args, init_process_name);
     idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
 
-
+    init_process->parent = idle_process;
     current_process = idle_process;
     
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
@@ -347,13 +349,15 @@ int deallocateFrame(int frame_index)
      * Add a node with frame_index to empty_frames
      * NOTE: user is responsible for flushing TLB after calling!
      */
-    if (enqueue(empty_frames, &frame_index) == -1)
+    int* allocated_int = (int*) malloc(sizeof(int));
+    *allocated_int = frame_index;
+    if (enqueue(empty_frames, allocated_int) == -1)
     {
         return ERROR;
     }
     else
     {
-        return frame_index;
+        return *allocated_int;
     }
 }
 
@@ -370,26 +374,25 @@ int runProcess()
      */
     TracePrintf(1, "Queue size: %d\n", getSize(ready_queue));
     pcb_t *next;
+    if(getSize(ready_queue) == 0) return 0;
     // if it's time to pop somethi fng off the delay queue, do so
     if(getSize(delay_queue) > 0 && (((pcb_t*)delay_queue->head->data)->delayed_until <= clock_ticks)){
         next = (pcb_t*)dequeue(delay_queue)->data;
     }
     else {
+        TracePrintf(1, "we are in the right spot lfggggg!\n");
         next = (pcb_t *)dequeue(ready_queue)->data;
     }
 
-    if (next == NULL)
-    {
-        TracePrintf(1, "No process to run\n");
-        return ERROR;
-    }
     if (current_process->state == READY)
     {
+        TracePrintf(1, "just enqueued process with pid %d\n", current_process->pid);
         enqueue(ready_queue, current_process);
     }
     else if (current_process->state == DEAD)
     {
         enqueue(current_process->parent->zombies, current_process);
+        TracePrintf(1, "Process with pid %d just was added to zombies queue of parent. Parent is %d\n", current_process->pid, current_process->parent->pid);
     }
     else {
         TracePrintf(1, "BAD STATE, NOT PREPARED: current process is in state %d\n", current_process->state);
@@ -487,7 +490,7 @@ int SetKernelBrk(void *addr)
 pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 {
     TracePrintf(1, "FUNCTION CALL: initIdleProcess\n");
-    pcb_t *idle_process = createPCB();
+    pcb_t *idle_process = createPCB(NULL);
     memcpy(&idle_process->user_c, uctxt, sizeof(UserContext));
 
     // Setup Kernel Stack
@@ -525,7 +528,7 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
 pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 {
     TracePrintf(1, "FUNCTION CALL: initProcess\n");
-    pcb_t *pcb = createPCB();
+    pcb_t *pcb = createPCB(current_process);
     memcpy(&pcb->user_c, uctxt, sizeof(UserContext));
 
     // Setup Kernel Stack
@@ -560,11 +563,12 @@ pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 /**
  * Create a new PCB. This function will also initalize the PCB's kernel stack and region 1 page table.
 */
-pcb_t *createPCB()
+pcb_t *createPCB(pcb_t* parent)
 {
     TracePrintf(1, "FUNCTION CALL: createPCB\n");
     pcb_t *pcb = malloc(sizeof(pcb_t));
     pcb->pid = helper_new_pid(pcb->userland_pt);
+    pcb->parent = parent;
     pcb->exit_status = 0;
     pcb->delayed_until = 0;
     pcb->state = READY;

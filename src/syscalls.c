@@ -52,6 +52,58 @@ int Y_Exit(int status)
      * 7. if initial process, HALT
      * 8. Pop next process off the ready queue (or whatever is ready to run - Zephyr said to run "scheduler"), run that
      */
+
+    TracePrintf(1, "in exit syscall\n");
+
+    // return all of userland to free frames queue
+    int frame_to_free;
+    for(int i = 0; i < MAX_PT_LEN; i++){
+        int curr_pfn = current_process->userland_pt[i].pfn;
+        // if the curr pfn is an actual frame
+        if(curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE)){
+        deallocateFrame(curr_pfn);
+        }
+    }
+
+    TracePrintf(1, "in exit syscall, point 2\n");
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+
+    // return kernel stack frames to free frames queue
+    for(int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++){
+         int curr_pfn = current_process->kernel_stack_pt[i].pfn;
+        // if the curr pfn is an actual frame
+        if(curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE)){
+        deallocateFrame(curr_pfn);
+        }
+    }
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
+
+    TracePrintf(1, "in exit syscall, point 3\n");
+    // add to queue of zombies for parent
+    enqueue(current_process->parent->zombies, current_process);
+
+    TracePrintf(1, "in exit syscall, point 4\n");
+    current_process->state = DEAD;
+    current_process->exit_status = status;
+
+    // wake processes waiting on this process, add them to ready queue
+    Node_t* waiter = current_process->waiters->tail->prev;
+    Node_t* temp;
+    while(waiter != NULL && waiter != current_process->waiters->head){
+        TracePrintf(1, "Waiter not null, in loop...\n");
+        TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t*) waiter->data)->pid);
+        temp = waiter;
+        // add the waiter to the ready queue
+        enqueue(ready_queue, (void*) waiter->data);
+        // remove the waiter from the waiters list
+        dequeue(current_process->waiters);
+        waiter = temp->prev;
+    }
+
+    runProcess();
+
 }
 
 int Y_Wait(int *status)

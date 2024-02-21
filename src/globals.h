@@ -103,4 +103,7 @@ extern pcb_t *idle_process;
 // For delay and traps
 extern int clock_ticks;
 
+// to hold size of pmem
+extern int pmem_size_holder;
+
 #endif

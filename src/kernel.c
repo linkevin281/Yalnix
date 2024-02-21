@@ -263,7 +263,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
+    
     // Return the next process's kernel context
     return &(next_pcb->kernel_c);
 }
@@ -411,9 +411,9 @@ int runProcess()
         {
             TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
             Node_t *delayed_node = dequeue(delay_queue);
+            delayed->state = READY;
             enqueue(ready_queue, delayed_node->data);
             delayed = (pcb_t *)peekTail(delay_queue)->data;
-            TracePrintf(1, "Next delayed process: %s { %d }\n", delayed->name, delayed->pid);
         }
     }
     TracePrintf(1, "No more delayed processes\n");
@@ -428,6 +428,7 @@ int runProcess()
         return ERROR;
     }
     TracePrintf(1, "Back from KernelContextSwitch\n");
+    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->state, current_process->user_c.pc, current_process->user_c.sp);
 }
 
 int SetKernelBrk(void *addr)
@@ -923,6 +924,7 @@ void Checkpoint3TrapClock(UserContext *user_context)
     TracePrintf(1, "Target. PC and SP going in: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
+    TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
     current_process->state = RUNNING;
     TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);

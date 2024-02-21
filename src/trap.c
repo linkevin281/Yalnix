@@ -9,6 +9,7 @@
 
 #include <hardware.h>
 #include <yalnix.h>
+#include "kernel.h"
 /* Creates a new process that is a copy of the calling process. */
 int Y_Fork(void);
 /* Replaces the currently running process with a new process image. */
@@ -40,6 +41,8 @@ int Y_Reclaim(int id);
 void TrapKernel(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Kernel Trap. Syscall code: %d\n", user_context->code);
+    memcpy(&current_process->user_c, user_context, sizeof(UserContext));
+
     /**
      * 1. Save user context
      * 2. Switch to kernel mode
@@ -69,6 +72,8 @@ void TrapKernel(UserContext *user_context)
     default:
         break;
     }
+    memcpy(user_context, &current_process->user_c, sizeof(UserContext));
+    user_context->regs[0] = r_value;
 }
 
 void TrapClock(UserContext *user_context)

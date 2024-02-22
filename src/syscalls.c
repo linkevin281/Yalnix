@@ -128,6 +128,8 @@ int Y_Getpid()
 
 int Y_Brk(void *addr)
 {
+    TracePrintf(1, "In Y_brk\n");
+    TracePrintf(1, "addr is %p\n", addr);
     /**
      * // Just a user brk
      * 1. Check if addr exceeds stack pointer, if so, ERROR
@@ -141,18 +143,16 @@ int Y_Brk(void *addr)
      *          Map next page we need to this frame in the userland page table
      * 4. Set brk to addr
     */
-    TracePrintf(0, "In brk syscall\n");
-    TracePrintf(1, "addr is: %p\n", addr);
     TracePrintf(1, "highest text addr: %p\n", current_process->highest_text_addr);
     // return error if addr > stack pointer
-    if (addr > current_process->user_c.sp)
+    if ((unsigned int) addr > DOWN_TO_PAGE(current_process->user_c.sp))
     {
         TracePrintf(1, "attempting to allocate too much!\n");
         return ERROR;
     }
     // return error if addr is too low
     if((unsigned int) addr < current_process->highest_text_addr){
-        TracePrintf(1, "addr too lowwwwww wowowowowo\n");
+        TracePrintf(1, "addr too lowwwwww\n");
         return ERROR;
     }
 
@@ -194,6 +194,8 @@ int Y_Brk(void *addr)
         }
     }
     current_process->brk = UP_TO_PAGE(addr);
+    TracePrintf(1, "IN BRK current process brk as address now %p\n", current_process->brk);
+    TracePrintf(1, "IN BRK current process brk as int now %d\n", current_process->brk);
     return 0;
 }
 

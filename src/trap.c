@@ -57,17 +57,18 @@ void TrapKernel(UserContext *user_context)
     switch (code)
     {
     case YALNIX_BRK:
-        TracePrintf(1, "TARGET: our reg %p\n", user_context->regs[0]);
+        TracePrintf(1, "TRAP BRK REG; 0: %p\n", (void *)user_context->regs[0]);
         r_value = Y_Brk((void*) user_context->regs[0]);
         break;
     case YALNIX_FORK:
         r_value = Y_Fork();
         break;
     case YALNIX_EXEC:
-        TracePrintf(1, "TARGET: regs: %s, %s\n", (char *)user_context->regs[0], (char *)user_context->regs[1]);
+        TracePrintf(1, "TRAP EXEC REG; 0: %s, 1: %s\n", (char *)user_context->regs[0], (char **)user_context->regs[1]);
         r_value = Y_Exec((char *)user_context->regs[0], (char **)user_context->regs[1]);
         break;
     case YALNIX_DELAY:
+        TracePrintf(1, "TRAP DELAY REG; 0: %d\n", (int)user_context->regs[0]);
         r_value = Y_Delay((int)user_context->regs[0]);
         break;
     case YALNIX_GETPID:
@@ -77,6 +78,7 @@ void TrapKernel(UserContext *user_context)
         r_value = Y_Wait((int)user_context->regs[0]);
 
     case YALNIX_EXIT:
+        TracePrintf(1, "TRAP EXIT REG; 0: %d\n", (int)user_context->regs[0]);
         Y_Exit((int)user_context->regs[0]);
         break;
     default:
@@ -116,7 +118,6 @@ void TrapMemory(UserContext *user_context)
      *    a. Grow stack to this address it doesnt pass heap
      *    b. But I think if it passes the heap, it probably was a valid address?
      */
-    TracePrintf(1, "TARGET here \n");
 }
 
 void TrapMath(UserContext *user_context)

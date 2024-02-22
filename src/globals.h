@@ -7,9 +7,6 @@
 #define MAX_ARGS 50
 #define MAX_ARG_LEN 256
 
-
-#define ERROR                       -1
-
 /* Exit Codes */
 #define GENERAL_EXCEPTION           -66
 #define ILLEGAL_MEMORY              -131 

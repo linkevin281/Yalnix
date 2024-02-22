@@ -58,7 +58,7 @@ void TrapKernel(UserContext *user_context)
     {
     case YALNIX_BRK:
         TracePrintf(1, "TARGET: our reg %d\n", user_context->regs[0]);
-        Y_Brk((void*) user_context->regs[0]);
+        r_value = Y_Brk((void*) user_context->regs[0]);
         break;
     case YALNIX_FORK:
         r_value = Y_Fork();

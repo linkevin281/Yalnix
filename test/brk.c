@@ -53,8 +53,7 @@ void test_edge_cases() {
 
 int main() {
     test_basic_allocation(128); 
-    test_basic_allocation(20000);
-
+    test_basic_allocation(10*PAGESIZE);
     test_edge_cases(); 
 
     return 0;

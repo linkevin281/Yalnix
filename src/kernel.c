@@ -184,6 +184,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     ready_queue = createQueue();
     delay_queue = createQueue();
+    waiting_queue = createQueue();
 
     // Init and Idle Process
     char *idle_process_name = "./test/idle";
@@ -401,6 +402,9 @@ int runProcess()
         TracePrintf(1, "Placed Current Process { %s } on the ready queue because it was in state { %d }\n", current_process->name, current_process->state);
         enqueue(ready_queue, current_process);
         break;
+    case WAITING:
+        TracePrintf(1, "reached waiting case in runProcess!\n");
+        enqueue(waiting_queue, current_process);
     case LOCK_BLOCKED:
         break;
     case CVAR_BLOCKED:
@@ -412,6 +416,25 @@ int runProcess()
         enqueueDelayQueue(delay_queue, current_process);
         break;
     case DEAD:
+        if(current_process->parent != NULL){
+            if(current_process->parent->state == WAITING){
+                TracePrintf(1, "SEARCH for parent!\n");
+                // traverse waiting queue to remove the node
+                Node_t* prev = waiting_queue->head;
+                Node_t* curr = waiting_queue->head->next;
+                while(curr !=  waiting_queue->tail){
+                    if(curr->data == current_process->parent){
+                        prev->next = curr->next;
+                        break;
+                    }
+                    prev = curr;
+                    curr = curr->next;
+                }
+                current_process->parent->state = READY;
+                TracePrintf(1, "TARGET2: \n");
+                enqueue(ready_queue, current_process->parent);
+            }
+        }
         // enqueue(current_process->parent->zombies, current_process); // This line is going to break because our init and idle process hvae no parent.
         break;
     default:

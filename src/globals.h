@@ -24,6 +24,7 @@ typedef enum State {
     PIPE_BLOCKED   = 4,
     DELAYED        = 5,
     DEAD           = 6,
+    WAITING        = 7
 } State_t;
 
 typedef struct pcb {

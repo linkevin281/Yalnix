@@ -265,31 +265,68 @@ int Y_Exit(int status)
     current_process->exit_status = status;
 
     // wake processes waiting on this process, add them to ready queue
-    Node_t *waiter = current_process->waiters->tail->prev;
-    Node_t *temp;
-    while (waiter != NULL && waiter != current_process->waiters->head)
-    {
-        TracePrintf(1, "Waiter not null, in loop...\n");
-        TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t *)waiter->data)->pid);
-        temp = waiter;
-        // add the waiter to the ready queue
-        enqueue(ready_queue, (void *)waiter->data);
-        // remove the waiter from the waiters list
-        dequeue(current_process->waiters);
-        waiter = temp->prev;
-    }
+    // Node_t *waiter = current_process->waiters->tail->prev;
+    // Node_t *temp;
+    // while (waiter != NULL && waiter != current_process->waiters->head)
+    // {
+    //     TracePrintf(1, "Waiter not null, in loop...\n");
+    //     TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t *)waiter->data)->pid);
+    //     temp = waiter;
+    //     // add the waiter to the ready queue
+    //     enqueue(ready_queue, (void *)waiter->data);
+    //     // remove the waiter from the waiters list
+    //     dequeue(current_process->waiters);
+    //     waiter = temp->prev;
+    // }
 
     runProcess();
 }
 
 int Y_Wait(int *status)
 {
+
+    TracePrintf(1, "In wait syscall!\n");
     /**
      * 1. Loop through children, find one that is dead. If no children, ERROR, else
      *        add to waiting queue and load new ready.
      * 2. Collect exit status from PCB, save to status and PID
      * 3. return PID.
      */
+
+    // return error if no dead children
+    if (getSize(current_process->children) == 0 && getSize(current_process->zombies) == 0) {
+        TracePrintf(1, "WAIT error\n");
+        return ERROR;
+    }
+
+    else if (getSize(current_process->zombies) > 0){
+        TracePrintf(1, "WAIT zombies in queue!\n");
+        Node_t* child_container = dequeue(current_process->zombies);
+        pcb_t* child = child_container->data;
+        if(status != NULL){
+            memcpy(status, &(child->exit_status), sizeof(int));
+        }
+        return child->pid;
+    }
+
+    current_process->state = WAITING;
+
+    TracePrintf(1, "WAIT about to run process\n");
+    // this will add the current process to the waiting queue
+    runProcess();
+    TracePrintf(1, "WAIT run process complete!\n");
+
+    // at this point, there will be a zombie
+    TracePrintf(1, "size of zombies queue: %d\n", getSize(current_process->zombies));
+    Node_t* child_container = dequeue(current_process->zombies);
+    TracePrintf(1, "WAIT checkpoint 1\n");
+    pcb_t* child = child_container->data;
+    TracePrintf(1, "WAIT checkpoint 2\n");
+    if(status != NULL){
+        memcpy(status, &(child->exit_status), sizeof(int));
+    }
+    TracePrintf(1, "the child is done lfg!\n");
+    return child->pid;
 }
 
 int Y_Getpid()

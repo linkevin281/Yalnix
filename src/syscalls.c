@@ -107,7 +107,6 @@ int Y_Fork()
     // Copy brk
 
     // Add to Ready Queue
-    enqueue(ready_queue, current_process);
     enqueue(ready_queue, child);
 
     // Copy Kernel Context
@@ -321,11 +320,12 @@ int Y_Wait(int *status)
     Node_t* child_container = dequeue(current_process->zombies);
     TracePrintf(1, "WAIT checkpoint 1\n");
     pcb_t* child = child_container->data;
+    TracePrintf(1, "TAGET child's pid: %d\n", child->pid);
     TracePrintf(1, "WAIT checkpoint 2\n");
     if(status != NULL){
         memcpy(status, &(child->exit_status), sizeof(int));
     }
-    TracePrintf(1, "the child is done lfg!\n");
+    TracePrintf(1, "the child is done let's gooooo!\n");
     return child->pid;
 }
 

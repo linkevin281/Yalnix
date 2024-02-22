@@ -75,8 +75,9 @@ void TrapKernel(UserContext *user_context)
         r_value = Y_Getpid();
         break;
     case YALNIX_WAIT:
-        r_value = Y_Wait((int)user_context->regs[0]);
-
+        r_value = Y_Wait((void*)user_context->regs[0]);
+        TracePrintf(1, "return value for yalnix wait: %d\n", r_value);
+        break;
     case YALNIX_EXIT:
         TracePrintf(1, "TRAP EXIT REG; 0: %d\n", (int)user_context->regs[0]);
         Y_Exit((int)user_context->regs[0]);

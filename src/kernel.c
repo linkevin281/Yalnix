@@ -416,6 +416,7 @@ int runProcess()
         enqueueDelayQueue(delay_queue, current_process);
         break;
     case DEAD:
+        TracePrintf(1, "IN DEAD STATE!!!\n");
         if(current_process->parent != NULL){
             if(current_process->parent->state == WAITING){
                 TracePrintf(1, "SEARCH for parent!\n");

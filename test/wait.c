@@ -22,8 +22,10 @@ int main() {
             Pause();
         }
         TracePrintf(1, "I am the parent, and will now wait for the child...\n");
-        Wait(status_holder);
+        int child_pid = Wait(status_holder);
         TracePrintf(1, "DONE waiting let's go!\n");
+        TracePrintf(1, "Child with pid %d and exit status %d is done.\n", child_pid, *status_holder);
+
     }
     
     Exit(0);

@@ -129,7 +129,7 @@ int Y_Getpid()
 int Y_Brk(void *addr)
 {
     TracePrintf(1, "In Y_brk\n");
-    TracePrintf(1, "addr is %p\n", addr);
+    TracePrintf(1, "addr is %p, our brk: %p\n", addr, current_process->brk);
     /**
      * // Just a user brk
      * 1. Check if addr exceeds stack pointer, if so, ERROR
@@ -158,13 +158,13 @@ int Y_Brk(void *addr)
 
     TracePrintf(1, "in brk, past error checks\n");
 
-    int adjusted_addr_page = (UP_TO_PAGE(addr) - VMEM_0_SIZE) >> PAGESHIFT;
+    int adjusted_addr_page = (UP_TO_PAGE(addr) - VMEM_0_SIZE) / PAGESIZE;
     TracePrintf(1, "Adjusted address page: %d\n", adjusted_addr_page);
 
     //set bottom of the red zone, which is the highest the brk can possibly be
     int bottom_of_red_zone_page = ((DOWN_TO_PAGE(current_process->user_c.sp)) - PAGESIZE) >> PAGESHIFT;
 
-    
+    TracePrintf(1, "bottom of red zone page: %d\n", bottom_of_red_zone_page);
     
     // If addr below brk, free all frames from addr to brk
     if ((unsigned int) addr < current_process->brk)

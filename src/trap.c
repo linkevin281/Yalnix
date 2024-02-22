@@ -57,6 +57,7 @@ void TrapKernel(UserContext *user_context)
     switch (code)
     {
     case YALNIX_BRK:
+        TracePrintf(1, "TARGET: our reg %d\n", user_context->regs[0]);
         Y_Brk((void*) user_context->regs[0]);
         break;
     case YALNIX_FORK:
@@ -111,6 +112,7 @@ void TrapMemory(UserContext *user_context)
      *    a. Grow stack to this address it doesnt pass heap
      *    b. But I think if it passes the heap, it probably was a valid address?
      */
+    TracePrintf(1, "TARGET here \n");
 }
 
 void TrapMath(UserContext *user_context)

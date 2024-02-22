@@ -304,7 +304,7 @@ int Y_Getpid()
 
 int Y_Brk(void *addr)
 {
-    TracePrintf(1, "In Y_brk\n");
+    TracePrintf(1, "SYSCALL: Y_Brk\n");
     TracePrintf(1, "addr is %p, our brk: %p\n", addr, current_process->brk);
     /**
      * // Just a user brk
@@ -342,6 +342,7 @@ int Y_Brk(void *addr)
 
     TracePrintf(1, "bottom of red zone page: %d\n", bottom_of_red_zone_page);
     
+    TracePrintf(1, "Is currend addr %p less than brk %p\n", addr, current_process->brk);
     // If addr below brk, free all frames from addr to brk
     if ((unsigned int)addr < current_process->brk)
     {
@@ -352,6 +353,8 @@ int Y_Brk(void *addr)
     }
     else if (((unsigned int)addr > current_process->brk))
     {
+        TracePrintf(1, "IN BRK: addr is greater than current brk\n");
+        TracePrintf(1, "The loop: i starts at %d and goes to %d\n", current_process->brk >> PAGESHIFT, adjusted_addr_page);
         for (int i = current_process->brk >> PAGESHIFT; i < adjusted_addr_page; i++)
         {   
             // if we've gone too far and encroach on stack pointer, error
@@ -370,9 +373,8 @@ int Y_Brk(void *addr)
             TracePrintf(1, "BRK: just allocated frame %d for page %d\n", frame_index, i);
         }
     }
-    current_process->brk = UP_TO_PAGE(addr);
+    current_process->brk = UP_TO_PAGE(addr) - VMEM_0_SIZE;
     TracePrintf(1, "IN BRK current process brk as address now %p\n", current_process->brk);
-    TracePrintf(1, "IN BRK current process brk as int now %d\n", current_process->brk);
     return 0;
 }
 

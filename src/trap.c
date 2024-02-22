@@ -57,7 +57,7 @@ void TrapKernel(UserContext *user_context)
     switch (code)
     {
     case YALNIX_BRK:
-        TracePrintf(1, "TARGET: our reg %d\n", user_context->regs[0]);
+        TracePrintf(1, "TARGET: our reg %p\n", user_context->regs[0]);
         r_value = Y_Brk((void*) user_context->regs[0]);
         break;
     case YALNIX_FORK:
@@ -81,6 +81,7 @@ void TrapKernel(UserContext *user_context)
     }
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
     user_context->regs[0] = r_value;
+    TracePrintf(1, "Exiting kernel trap\n");
 }
 
 void TrapClock(UserContext *user_context)

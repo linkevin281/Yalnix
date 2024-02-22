@@ -374,8 +374,21 @@ int runProcess()
      */
     TracePrintf(1, "FUNCTION CALL: runProcess\n");
     pcb_t *next;
-
-    // 1. Handle putting the current process on the correct queue.
+    // 1. Handle putting any delayed processes on the ready queue
+    if (getSize(delay_queue) > 0)
+    {
+        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
+        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
+        {
+            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
+            Node_t *delayed_node = dequeue(delay_queue);
+            delayed->state = READY;
+            enqueue(ready_queue, delayed_node->data);
+            delayed = (pcb_t *)peekTail(delay_queue)->data;
+        }
+    }
+    
+    // 2. Handle putting the current process on the correct queue.
     TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
     switch (current_process->state)
     {
@@ -406,22 +419,6 @@ int runProcess()
         break;
     }
 
-    // 2. Handle putting any delayed processes on the ready queue
-    if (getSize(delay_queue) > 0)
-    {
-        TracePrintf(1, "There are delayed processes\n");
-        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
-        TracePrintf(1, "Checking on delayed process %s { %d }\n", delayed->name, delayed->pid);
-        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
-        {
-            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
-            Node_t *delayed_node = dequeue(delay_queue);
-            delayed->state = READY;
-            enqueue(ready_queue, delayed_node->data);
-            delayed = (pcb_t *)peekTail(delay_queue)->data;
-        }
-    }
-    TracePrintf(1, "No more delayed processes\n");
     // 3. Grab the next process off the ready queue
     next = (pcb_t *)dequeue(ready_queue)->data;
 
@@ -598,7 +595,6 @@ pcb_t *createPCB(char* name)
     strncpy(pcb->name, name, 255);
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
-    pcb->delayed_until = 0;
     pcb->state = READY;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
@@ -633,12 +629,12 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     int stack_npg;
     long segment_size;
     char *argbuf;
-
-    TracePrintf(1, "LoadProgram called with name: %s\n", name);
+    TracePrintf(1, "FUNCTION CALL: LoadProgram\n");
     /*
      * Open the executable file
      */
-    TracePrintf(1, "Loaasdfam: opening file '%s'\n", name);
+    
+    TracePrintf(1, "LoadProgram: opening file '%s'\n", name);
     if ((fd = open(name, O_RDONLY)) < 0)
     {
         TracePrintf(0, "LoadProgram: can't open file '%s'\n", name);
@@ -936,13 +932,10 @@ void Checkpoint3TrapClock(UserContext *user_context)
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
     // increment number of clock ticks
     clock_ticks++;
-    TracePrintf(1, "Target. PC and SP going in: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
-    TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
     current_process->state = RUNNING;
-    TracePrintf(1, "Target. PC and SP coming out: %p, %p\n", user_context->pc, user_context->sp);
 
     /**
      * 1. Increment clock (if we go with a global clock)
@@ -976,8 +969,6 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     node->next = curr->next;
     curr->next->prev = node;
     curr->next = node;
-    TracePrintf(1, "Target: queue size was: %d\n", queue->size);
     queue->size++;
-    TracePrintf(1, "Target: queue size is now: %d\n", queue->size);
     return 0;
 }

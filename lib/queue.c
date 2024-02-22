@@ -132,7 +132,6 @@ Node_t *peekTail(Queue_t *queue)
 
 int getSize(Queue_t *queue)
 {
-    TracePrintf(1, "here\n");
     return queue->size;
 }
 

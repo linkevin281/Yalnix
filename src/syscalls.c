@@ -11,34 +11,206 @@
 #include "syscalls.h"
 #include "kernel.h"
 
-// input: pcb
+/**
+ * Forks a new process.
+ *
+ * 1. Generates a new name {parent}_child for the child and creates a PCB.
+ * 2. Updates parent's children to include the child, update child's parent to be the parent.
+ * 3. Allocates a kernel stack for the child.
+ * 4. Copies the parent's userland page table to the child's userland page table using a temp page below the kernel stack.
+ * 5. Copies the parent's user context and other PCB fields to the child's PCB.
+ * 6. Adds the parent and child to the ready queue.
+ * 7. Calls KernelContextSwitch to copy the kernel context to the child, then runs the child.
+ * 8. Returns 0 if the child, or the child's PID if the parent.
+ */
 int Y_Fork()
 {
-    /**
-     * Create new PCB for child process, with input PCB as its parent and user context copied in from input PCB
-     * Update parent PCB to say that this new PCB is its child
-     * Use KCCopy to copy parent's kernel context into the child
-     * Initialize a new page table for the child process
-     * For each page in the page table of the parent process:
-     *     If page is valid:
-     *         Grab a free frame from empty_frames
-     *         allocate this free frame to the page
-     *         Copy contents of the page in the old table to the child
-     * Add child PCB to ready queue
-     *
-     */
+    TracePrintf(1, "SYSCALL: Y_Fork\n");
+
+    // Generate Child Name
+    char *name = malloc(sizeof(char) * 256);
+    strncpy(name, current_process->name, 248);
+    strcat(name, "_child");
+    pcb_t *child = (pcb_t *)createPCB(name);
+    if (child == NULL)
+    {
+        return ERROR;
+    }
+
+    // Update Parent and Child
+    child->parent = current_process;
+    enqueue(current_process->children, child);
+
+    // Setup Kernel Stack
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
+    {
+        int frame = allocateFrame(empty_frames);
+        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
+        if (frame == -1)
+        {
+            TracePrintf(1, "Out of physical memory.\n");
+            return ERROR;
+        }
+        child->kernel_stack_pt[i].pfn = frame;
+        child->kernel_stack_pt[i].valid = 1;
+        child->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+    }
+
+    // Setup Region 1 Page Table
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        child->userland_pt[i].pfn = 0;
+        child->userland_pt[i].valid = 0;
+        child->userland_pt[i].prot = PROT_NONE;
+    }
+
+    int temp_base_page = (KERNEL_STACK_BASE - PAGESIZE) >> PAGESHIFT;
+    kernel_pt[temp_base_page].valid = 1;
+    kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
+
+    // Copy User PT from Parent
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        if (current_process->userland_pt[i].valid)
+        {
+            int frame = allocateFrame(empty_frames);
+            if (frame == -1)
+            {
+                return ERROR;
+            }
+            child->userland_pt[i].pfn = frame;
+            child->userland_pt[i].valid = 1;
+            child->userland_pt[i].prot = current_process->userland_pt[i].prot;
+            kernel_pt[temp_base_page].pfn = frame;
+            WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+
+            // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
+            memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
+
+            TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
+        }
+    }
+    TracePrintf(1, "Finished copying userland PT\n");
+    kernel_pt[temp_base_page].valid = 0;
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+
+    // Copy User Context
+    memcpy(&child->user_c, &current_process->user_c, sizeof(UserContext));
+
+    // Copy other PCB fields
+    child->delayed_until = current_process->delayed_until;
+    child->state = current_process->state;
+    // TODO:
+    // Copy zombies
+    // Copy waiters
+    // Copy brk
+
+    // Add to Ready Queue
+    enqueue(ready_queue, current_process);
+    enqueue(ready_queue, child);
+
+    // Copy Kernel Context
+    if (KernelContextSwitch(KCCopy, child, NULL) == ERROR)
+    {
+        return ERROR;
+    }
+    runProcess();
+
+    // If we're the child, return 0
+    if (getSize(current_process->children) == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        // If we're the parent, return the child's PID
+        return child->pid;
+    }
 }
 
+/**
+ * Executes a new process.
+ * 
+ * 1. Save Args and Filename in Kernel Heap
+ * 2. Deallocate Stack Frames
+ * 3. Create PCB
+ * 4. Setup Kernel Stack
+ * 5. Setup Region 1 Page Table
+ * 6. Copy Kernel Context (copies stack)
+ * 7. Load Program
+*/
 int Y_Exec(char *filename, char *argv[])
 {
-    /**
-     * Move args into kernel heap, so they aren't lost
-     * For each page in our page table:
-     *      Add the corresponding frame back to the queue of free frames
-     * LoadProgram with the filename
-     * Add PCB to ready queue
-     *
-     */
+    TracePrintf(1, "SYSCALL: Y_Exec\n");
+    char **args_copy = malloc(sizeof(char *) * MAX_ARGS);
+    char *name_copy = malloc(sizeof(char) * MAX_ARG_LEN);
+    strncpy(name_copy, filename, MAX_ARG_LEN);
+
+    // Save Args in Kernel Heap
+    if (argv == NULL)
+    {
+        TracePrintf(1, "Argv is null\n");
+    }
+    else
+    {
+        for (int i = 0; i < MAX_ARGS; i++)
+        {
+            if (argv[i] == NULL)
+            {
+                TracePrintf(1, "Argv[%d] is null\n", i);
+                break;
+            }
+            args_copy[i] = malloc(sizeof(char) * MAX_ARG_LEN);
+            strncpy(args_copy[i], argv[i], MAX_ARG_LEN);
+        }
+    }
+
+    // Deallocate Stack Frames
+    TracePrintf(1, "Deallocating stack frames\n");
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        pte_t cur_page = current_process->userland_pt[i];
+        if (cur_page.valid)
+        {
+            deallocateFrame(cur_page.pfn);
+        }
+    }
+
+    // Create PCB
+    pcb_t *pcb = (pcb_t *)createPCB(filename);
+    if (pcb == NULL)
+    {
+        return ERROR;
+    }
+
+    // Setup Kernel Stack
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
+    {
+        int frame = allocateFrame(empty_frames);
+        TracePrintf(1, "Allocating frame for kernel stack, frame: %d, mem: %p\n", frame, frame << PAGESHIFT);
+        if (frame == -1)
+        {
+            TracePrintf(1, "Out of physical memory.\n");
+            return ERROR;
+        }
+        pcb->kernel_stack_pt[i].pfn = frame;
+        pcb->kernel_stack_pt[i].valid = 1;
+        pcb->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
+    }
+
+    // Setup Region 1 Page Table
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        pcb->userland_pt[i].pfn = 0;
+        pcb->userland_pt[i].valid = 0;
+        pcb->userland_pt[i].prot = PROT_NONE;
+    }
+
+    KernelContextSwitch(KCCopy, pcb, NULL);
+    LoadProgram(name_copy, args_copy, current_process);
+
+    return 0;
 }
 
 int Y_Exit(int status)
@@ -53,15 +225,17 @@ int Y_Exit(int status)
      * 8. Pop next process off the ready queue (or whatever is ready to run - Zephyr said to run "scheduler"), run that
      */
 
-    TracePrintf(1, "in exit syscall\n");
+    TracePrintf(1, "SYSCALL: Y_Exit\n");
 
     // return all of userland to free frames queue
     int frame_to_free;
-    for(int i = 0; i < MAX_PT_LEN; i++){
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
         int curr_pfn = current_process->userland_pt[i].pfn;
         // if the curr pfn is an actual frame
-        if(curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE)){
-        deallocateFrame(curr_pfn);
+        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
+        {
+            deallocateFrame(curr_pfn);
         }
     }
 
@@ -70,11 +244,13 @@ int Y_Exit(int status)
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
 
     // return kernel stack frames to free frames queue
-    for(int i = 0; i < KERNEL_STACK_MAXSIZE/PAGESIZE; i++){
-         int curr_pfn = current_process->kernel_stack_pt[i].pfn;
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
+    {
+        int curr_pfn = current_process->kernel_stack_pt[i].pfn;
         // if the curr pfn is an actual frame
-        if(curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE)){
-        deallocateFrame(curr_pfn);
+        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
+        {
+            deallocateFrame(curr_pfn);
         }
     }
 
@@ -89,21 +265,21 @@ int Y_Exit(int status)
     current_process->exit_status = status;
 
     // wake processes waiting on this process, add them to ready queue
-    Node_t* waiter = current_process->waiters->tail->prev;
-    Node_t* temp;
-    while(waiter != NULL && waiter != current_process->waiters->head){
+    Node_t *waiter = current_process->waiters->tail->prev;
+    Node_t *temp;
+    while (waiter != NULL && waiter != current_process->waiters->head)
+    {
         TracePrintf(1, "Waiter not null, in loop...\n");
-        TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t*) waiter->data)->pid);
+        TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t *)waiter->data)->pid);
         temp = waiter;
         // add the waiter to the ready queue
-        enqueue(ready_queue, (void*) waiter->data);
+        enqueue(ready_queue, (void *)waiter->data);
         // remove the waiter from the waiters list
         dequeue(current_process->waiters);
         waiter = temp->prev;
     }
 
     runProcess();
-
 }
 
 int Y_Wait(int *status)
@@ -167,11 +343,11 @@ int Y_Brk(void *addr)
     TracePrintf(1, "bottom of red zone page: %d\n", bottom_of_red_zone_page);
     
     // If addr below brk, free all frames from addr to brk
-    if ((unsigned int) addr < current_process->brk)
+    if ((unsigned int)addr < current_process->brk)
     {
         for (int i = adjusted_addr_page; i < current_process->brk >> PAGESHIFT; i++)
         {
-                deallocateFrame(i);
+            deallocateFrame(i);
         }
     }
     else if (((unsigned int)addr > current_process->brk))
@@ -179,7 +355,8 @@ int Y_Brk(void *addr)
         for (int i = current_process->brk >> PAGESHIFT; i < adjusted_addr_page; i++)
         {   
             // if we've gone too far and encroach on stack pointer, error
-            if (i > bottom_of_red_zone_page){
+            if (i > bottom_of_red_zone_page)
+            {
                 return ERROR;
             }
             int frame_index = allocateFrame();
@@ -198,7 +375,6 @@ int Y_Brk(void *addr)
     TracePrintf(1, "IN BRK current process brk as int now %d\n", current_process->brk);
     return 0;
 }
-
 
 int Y_Delay(int num_ticks)
 {

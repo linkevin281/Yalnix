@@ -140,15 +140,14 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Initialize trap vectors
     interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
-    // interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
-    interrupt_vector_tbl[TRAP_CLOCK] = Checkpoint3TrapClock;
-    // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
-    // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
-    // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
+    interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
+    interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
+    interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
+    interrupt_vector_tbl[TRAP_MATH] = TrapMath;
     // interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
     // interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
     // interrupt_vector_tbl[TRAP_DISK] = TrapDisk;
-    for (int i = TRAP_CLOCK + 1; i < TRAP_VECTOR_SIZE; i++)
+    for (int i = TRAP_MATH + 1; i < TRAP_VECTOR_SIZE; i++)
     {
         interrupt_vector_tbl[i] = TrapElse;
     }
@@ -949,25 +948,6 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     *cpp++ = NULL; /* a NULL pointer for an empty envp */
 
     return SUCCESS;
-}
-
-void Checkpoint3TrapClock(UserContext *user_context)
-{
-    TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
-    // increment number of clock ticks
-    clock_ticks++;
-    memcpy(&current_process->user_c, user_context, sizeof(UserContext));
-    runProcess();
-    memcpy(user_context, &current_process->user_c, sizeof(UserContext));
-    current_process->state = RUNNING;
-
-    /**
-     * 1. Increment clock (if we go with a global clock)
-     * 2. Check delay queue, find all processes that are ready to be woken up
-     *       a. This delay queue is sorted by delay()
-     * 3. Move these processes from delay queue to ready queue
-     * 4. return to user mode
-     */
 }
 
 // to enqueue a pcb in the delay queue

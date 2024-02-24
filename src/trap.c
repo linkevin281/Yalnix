@@ -144,13 +144,13 @@ void TrapTTYReceive(UserContext *user_context)
 
     int input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
     Node_t* new_node = createNode(address_to_copy_to);
-    enqueue(&(terminal_input_buffers[terminal_num]), new_node);
+    enqueue(terminal_input_buffers[terminal_num], new_node);
     
     while(input_length == TERMINAL_MAX_LINE){
         address_to_copy_to = malloc(TERMINAL_MAX_LINE);
         input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
         Node_t* new_node = createNode(address_to_copy_to);
-        enqueue(&(terminal_input_buffers[terminal_num]), new_node);
+        enqueue(terminal_input_buffers[terminal_num], new_node);
     }
 }
 

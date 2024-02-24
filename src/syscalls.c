@@ -442,9 +442,22 @@ int Y_Ttyread(int tty_id, void *buf, int len)
      *
      */
 
-    Queue_t* input_queue = &(terminal_input_buffers[tty_id]);
+    enqueue(want_to_read_from[tty_id], current_process); 
+
+
+    Queue_t* input_queue = terminal_input_buffers[tty_id];
     int bytes_read = 0;
     Node_t* curr_node = input_queue->tail->prev;
+
+    // while there is no input available or another node is ahead of us in the read queue, we run other process
+    while(curr_node == input_queue->head || peekTail(want_to_read_from[tty_id])->data != current_process){
+        // TODO: clean up this logic for queueing 
+        current_process->state = READY;
+        runProcess();
+        curr_node = input_queue->tail->prev;
+    }  
+
+    current_process->state = RUNNING;
 
     // while we can read more bytes or have read all bytes
     while(bytes_read < len && curr_node != input_queue->head){
@@ -465,7 +478,8 @@ int Y_Ttyread(int tty_id, void *buf, int len)
         }
     }
 
-    return len;
+    dequeue(want_to_read_from[tty_id]);
+    return bytes_read;
 }
 
 int Y_Ttywrite(int tty_id, void *buf, int len)
@@ -481,43 +495,47 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
      *      wait for can_write_to_terminal to be true for this terminal
      */
 
-    enqueue(terminal_waiting_queue, current_process);
-    current_process->state = WRITING;
-    runProcess();
+    enqueue(want_to_write_to[tty_id], current_process);
 
     // allocate space in kernel to store the string, so it doesn't get lost when we switch processes
     void* kernel_buff = malloc(len);
     memcpy(kernel_buff, buf, len);
 
-    // if we can't write to the terminal, run another process
-    while(can_write_to_terminal[tty_id] == 0){
+    // if there's another process in line to write to this terminal, block
+    while(peekTail(want_to_write_to[tty_id])->data != current_process){
+        // TODO: clean up this scheduling logic
+        current_process->state = READY;
         runProcess();
     }
 
-    can_write_to_terminal[tty_id] = 0;
+    current_process->state = RUNNING;
 
     int bytes_read = 0;
 
-    while(bytes_read < len){
-
-        //if we can't write to terminal, run another process
+    while(bytes_read < len && peekTail(want_to_write_to[tty_id])->data == current_process){
         if(can_write_to_terminal[tty_id] == 0){
+            // TODO: clean up this scheduling logic
+            current_process->state = READY;
             runProcess();
             continue;
         }
-
         if(bytes_read + TERMINAL_MAX_LINE < len){
             TtyTransmit(tty_id, kernel_buff, TERMINAL_MAX_LINE);
+            can_write_to_terminal[tty_id] = 0;
             kernel_buff += TERMINAL_MAX_LINE;
             bytes_read += TERMINAL_MAX_LINE;
         }
         else{
             TtyTransmit(tty_id, kernel_buff, len - bytes_read);
+            can_write_to_terminal[tty_id] = 0;
             bytes_read = len;
         }
-        can_write_to_terminal[tty_id] = 0;
+        // TODO: clean up this scheduling logic
+        current_process->state = READY;
         runProcess();
     }
+
+    dequeue(want_to_write_to[tty_id]);
 
     return bytes_read == len ? len : ERROR;
 }

@@ -29,10 +29,15 @@ Queue_t *empty_pipes;
 Queue_t *empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
-Queue_t terminal_input_buffers[NUM_TERMINALS];
-Queue_t terminal_output_buffers[NUM_TERMINALS];
+Queue_t* terminal_input_buffers[NUM_TERMINALS];
+Queue_t* terminal_output_buffers[NUM_TERMINALS];
 
-int can_transmit_to_terminal[NUM_TERMINALS];
+// quesues of pcbs attempting to read and write from various terminals
+Queue_t* want_to_read_from[NUM_TERMINALS];
+Queue_t* want_to_write_to[NUM_TERMINALS];
+
+int can_write_to_terminal[NUM_TERMINALS];
+int can_read_from_terminal[NUM_TERMINALS];
 
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
@@ -185,11 +190,12 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     ready_queue = createQueue();
     delay_queue = createQueue();
     waiting_queue = createQueue();
-    terminal_waiting_queue = createQueue();
 
     for (int i = 0; i < NUM_TERMINALS; i++){
         can_write_to_terminal[i] = 1;
         can_read_from_terminal[i] = 1;
+        want_to_read_from[i] = createQueue();
+        want_to_write_to[i] = createQueue();
     }
 
     // Init and Idle Process

@@ -88,8 +88,16 @@ extern Queue_t* empty_pipes;
 extern Queue_t* empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
-extern Queue_t terminal_input_buffers[NUM_TERMINALS];
-extern Queue_t terminal_output_buffers[NUM_TERMINALS];
+extern Queue_t* terminal_input_buffers[NUM_TERMINALS];
+extern Queue_t* terminal_output_buffers[NUM_TERMINALS];
+
+// quesues of pcbs attempting to read and write from various terminals
+extern Queue_t* want_to_read_from[NUM_TERMINALS];
+extern Queue_t* want_to_write_to[NUM_TERMINALS];
+
+// quesues of pcbs attempting to read and write from various terminals
+extern Queue_t* want_to_read_from[NUM_TERMINALS];
+extern Queue_t* want_to_write_to[NUM_TERMINALS];
 
 extern int can_write_to_terminal[NUM_TERMINALS];
 extern int can_read_from_terminal[NUM_TERMINALS];

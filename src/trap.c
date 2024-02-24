@@ -136,8 +136,22 @@ void TrapTTYReceive(UserContext *user_context)
      *      Allocate buf of size MAXIMUM_TERMINAL_INPUT on kernel heap
      *      Make linked list node storing the buf, add it to relevant user's terminal input buffer
      *      Execute ttyReceive machine instruction to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT.
-     *
+     * 
      */
+
+    int terminal_num = user_context->code;
+    void* address_to_copy_to = malloc(TERMINAL_MAX_LINE);
+
+    int input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
+    Node_t* new_node = createNode(address_to_copy_to);
+    enqueue(&(terminal_input_buffers[terminal_num]), new_node);
+    
+    while(input_length == TERMINAL_MAX_LINE){
+        address_to_copy_to = malloc(TERMINAL_MAX_LINE);
+        input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
+        Node_t* new_node = createNode(address_to_copy_to);
+        enqueue(&(terminal_input_buffers[terminal_num]), new_node);
+    }
 }
 
 void TrapTTYTransmit(UserContext *user_context)
@@ -145,6 +159,12 @@ void TrapTTYTransmit(UserContext *user_context)
     /**
      * Set can_transmit_to_terminal to true for the relevant terminal
      */
+
+    int terminal_num = user_context->code;
+
+    can_write_to_terminal[terminal_num] = 1;
+
+
 }
 
 void TrapDisk(UserContext *user_context)

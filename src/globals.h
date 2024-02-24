@@ -24,7 +24,9 @@ typedef enum State {
     PIPE_BLOCKED   = 4,
     DELAYED        = 5,
     DEAD           = 6,
-    WAITING        = 7
+    WAITING        = 7,
+    WRITING        = 8,
+    READING        = 9
 } State_t;
 
 typedef struct pcb {
@@ -79,6 +81,7 @@ typedef struct Pipe {
 extern Queue_t* ready_queue;
 extern Queue_t* waiting_queue;
 extern Queue_t* delay_queue; // This will be sorted. 
+extern Queue_t* terminal_waiting_queue; // to store pcbs that are waiting for some I/O operation to complete
 extern Queue_t* empty_locks;
 extern Queue_t* empty_cvars;
 extern Queue_t* empty_pipes;
@@ -88,7 +91,8 @@ extern Queue_t* empty_frames; // to track free frames
 extern Queue_t terminal_input_buffers[NUM_TERMINALS];
 extern Queue_t terminal_output_buffers[NUM_TERMINALS];
 
-extern int can_transmit_to_terminal[NUM_TERMINALS];
+extern int can_write_to_terminal[NUM_TERMINALS];
+extern int can_read_from_terminal[NUM_TERMINALS];
 
 extern Pipe_t pipes[MAX_PIPES];
 extern Lock_t locks[MAX_LOCKS];

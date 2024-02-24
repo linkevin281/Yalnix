@@ -185,6 +185,12 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     ready_queue = createQueue();
     delay_queue = createQueue();
     waiting_queue = createQueue();
+    terminal_waiting_queue = createQueue();
+
+    for (int i = 0; i < NUM_TERMINALS; i++){
+        can_write_to_terminal[i] = 1;
+        can_read_from_terminal[i] = 1;
+    }
 
     // Init and Idle Process
     char *idle_process_name = "./test/idle";

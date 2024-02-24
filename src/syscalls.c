@@ -441,18 +441,85 @@ int Y_Ttyread(int tty_id, void *buf, int len)
      * Return number of bytes read into buf
      *
      */
+
+    Queue_t* input_queue = &(terminal_input_buffers[tty_id]);
+    int bytes_read = 0;
+    Node_t* curr_node = input_queue->tail->prev;
+
+    // while we can read more bytes or have read all bytes
+    while(bytes_read < len && curr_node != input_queue->head){
+    int curr_len = strlen(curr_node->data);
+    if(curr_len + bytes_read < len){
+            memcpy(buf, curr_node->data, curr_len);
+            bytes_read+= curr_len;
+            dequeue(input_queue);
+            curr_node = input_queue->tail->prev;
+        }
+        else if (curr_len + bytes_read > len){
+            memcpy(buf, curr_node->data, len - bytes_read);
+            curr_node->data += len - bytes_read;
+            bytes_read += len - bytes_read;
+        }
+        else{
+            memcpy(buf, curr_node->data, curr_len);
+        }
+    }
+
+    return len;
 }
 
 int Y_Ttywrite(int tty_id, void *buf, int len)
 {
     /**
+     * add process to terminal waiting queue, dispatch next process
      * If address buf is not in kernel memory:
      *      Copy the contents of buf into kernel memory
      * Set can_transmit_to_terminal to false for this terminal
+     * When terminal can be written to:
      * For each chunk of TERMINAL_MAX_LINE size in buf:
      *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
      *      wait for can_write_to_terminal to be true for this terminal
      */
+
+    enqueue(terminal_waiting_queue, current_process);
+    current_process->state = WRITING;
+    runProcess();
+
+    // allocate space in kernel to store the string, so it doesn't get lost when we switch processes
+    void* kernel_buff = malloc(len);
+    memcpy(kernel_buff, buf, len);
+
+    // if we can't write to the terminal, run another process
+    while(can_write_to_terminal[tty_id] == 0){
+        runProcess();
+    }
+
+    can_write_to_terminal[tty_id] = 0;
+
+    int bytes_read = 0;
+
+    while(bytes_read < len){
+
+        //if we can't write to terminal, run another process
+        if(can_write_to_terminal[tty_id] == 0){
+            runProcess();
+            continue;
+        }
+
+        if(bytes_read + TERMINAL_MAX_LINE < len){
+            TtyTransmit(tty_id, kernel_buff, TERMINAL_MAX_LINE);
+            kernel_buff += TERMINAL_MAX_LINE;
+            bytes_read += TERMINAL_MAX_LINE;
+        }
+        else{
+            TtyTransmit(tty_id, kernel_buff, len - bytes_read);
+            bytes_read = len;
+        }
+        can_write_to_terminal[tty_id] = 0;
+        runProcess();
+    }
+
+    return bytes_read == len ? len : ERROR;
 }
 
 int Y_Pipeinit(int *pipe_idp)

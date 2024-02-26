@@ -150,10 +150,10 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
     // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
     // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
-    // interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
-    // interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
+    interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
+    interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
     // interrupt_vector_tbl[TRAP_DISK] = TrapDisk;
-    for (int i = TRAP_CLOCK + 1; i < TRAP_VECTOR_SIZE; i++)
+    for (int i = TRAP_TTY_TRANSMIT; i < TRAP_VECTOR_SIZE; i++)
     {
         interrupt_vector_tbl[i] = TrapElse;
     }
@@ -196,6 +196,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         can_read_from_terminal[i] = 1;
         want_to_read_from[i] = createQueue();
         want_to_write_to[i] = createQueue();
+        terminal_input_buffers[i] = createQueue();
+        terminal_output_buffers[i] = createQueue();
     }
 
     // Init and Idle Process

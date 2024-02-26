@@ -82,6 +82,14 @@ void TrapKernel(UserContext *user_context)
         TracePrintf(1, "TRAP EXIT REG; 0: %d\n", (int)user_context->regs[0]);
         Y_Exit((int)user_context->regs[0]);
         break;
+    case YALNIX_TTY_READ:
+        TracePrintf(1, "TRAP TTYREAD REG; 0: %d, 1: %p, 2:%s \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        r_value = Y_Ttyread((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        break;
+    case YALNIX_TTY_WRITE:
+        TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%s \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        r_value = Y_Ttywrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        break;
     default:
         break;
     }
@@ -139,12 +147,13 @@ void TrapTTYReceive(UserContext *user_context)
      * 
      */
 
+    TracePrintf(1, "In trapttyreceive!!!\n");
+
     int terminal_num = user_context->code;
     void* address_to_copy_to = malloc(TERMINAL_MAX_LINE);
 
     int input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
-    Node_t* new_node = createNode(address_to_copy_to);
-    enqueue(terminal_input_buffers[terminal_num], new_node);
+    enqueue(terminal_input_buffers[terminal_num], address_to_copy_to);
     
     while(input_length == TERMINAL_MAX_LINE){
         address_to_copy_to = malloc(TERMINAL_MAX_LINE);

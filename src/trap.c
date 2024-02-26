@@ -90,6 +90,15 @@ void TrapKernel(UserContext *user_context)
         TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%d \n", (int)(user_context->regs[0]), (void*)(user_context->regs[1]), (int)(user_context->regs[2]));
         r_value = Y_Ttywrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
         break;
+    case YALNIX_PIPE_INIT:
+        r_value = Y_Pipeinit((int *)user_context->regs[0]);
+        break;
+    case YALNIX_PIPE_WRITE:
+        r_value = Y_Pipewrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        break;
+    case YALNIX_PIPE_READ:
+        r_value = Y_Piperead((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        break;
     default:
         break;
     }

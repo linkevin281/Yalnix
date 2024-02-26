@@ -200,6 +200,21 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         terminal_output_buffers[i] = createQueue();
     }
 
+    empty_pipes = createQueue();
+
+    // Set up pipes
+    // TODO: potentially optimize this
+    for(int i = 0; i < MAX_PIPES; i++){
+        pipes[i].id = i;
+        pipes[i].read_pos = 0;
+        pipes[i].write_pos = 0;
+        pipes[i].in_use = 0;
+        pipes[i].num_bytes_in_pipe = 0;
+        int* to_enqueue = malloc(sizeof(int));
+        memcpy(to_enqueue, &i, sizeof(int));
+        enqueue(empty_pipes, to_enqueue);
+    }
+
     // Init and Idle Process
     char *idle_process_name = "./test/idle";
     char *init_process_name = "./test/init";

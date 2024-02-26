@@ -550,6 +550,13 @@ int Y_Pipeinit(int *pipe_idp)
      * 4. Fill kernel pipe array with pipe (maybe taken care of already by kernel?)
      * 5. Return 0
      */
+
+    // get next available pipe
+    int available_pipe_id = *((int*) dequeue(empty_pipes)->data);
+    memcpy(pipe_idp, &available_pipe_id, sizeof(int));
+    pipes[available_pipe_id].in_use = 1;
+    return available_pipe_id;
+
 }
 
 int Y_Piperead(int pipe_id, void *buf, int len)
@@ -563,6 +570,42 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 6.   Increment read_pos by len
      * 7.   Return len
      */
+
+    Pipe_t curr_pipe = pipes[pipe_id];
+
+    char* buf_holder = (char*) buf;
+
+    if(curr_pipe.in_use == 0){
+        return ERROR;
+    }
+
+    if(len > PIPE_SIZE){
+        return ERROR;
+    }
+
+    int bytes_to_read = len > curr_pipe.num_bytes_in_pipe ? curr_pipe.num_bytes_in_pipe : len;
+
+    // wait for bytes to read
+    while(bytes_to_read < 1){
+        current_process->state = READY;
+        runProcess();
+    }
+
+    int bytes_read = 0;
+    int pos = 0;
+
+    while(bytes_read < bytes_to_read){
+        buf_holder[pos] = curr_pipe.buffer[curr_pipe.read_pos];
+        bytes_read++;
+        curr_pipe.read_pos++;
+        // wrap the reading position around if needed
+        if(curr_pipe.read_pos >= PIPE_SIZE) curr_pipe.read_pos = 0;
+    }
+
+    curr_pipe.num_bytes_in_pipe -= bytes_read;
+
+    return bytes_read;
+
 }
 
 int Y_Pipewrite(int pipe_id, void *buf, int len)
@@ -579,6 +622,30 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      * 7. Return len
      *
      */
+
+    Pipe_t curr_pipe = pipes[pipe_id];
+
+    char* buf_str = (char*) buf;
+
+    if(curr_pipe.in_use == 0){
+        return ERROR;
+    }
+
+    if(len > PIPE_SIZE){
+        return ERROR;
+    }
+
+    int pos = 0;
+
+    while(pos < len){
+        curr_pipe.buffer[curr_pipe.write_pos] = buf_str[pos];
+        pos++;
+        // wrap around as needed
+        if(curr_pipe.write_pos >= PIPE_SIZE) curr_pipe.write_pos = 0;
+    }
+
+    return pos + 1;
+
 }
 
 int Y_LockInit(int *lock_idp)

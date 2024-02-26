@@ -74,6 +74,8 @@ typedef struct Pipe {
     int write_pos;
     char buffer[PIPE_SIZE]; 
     Queue_t *readers;
+    int in_use;
+    int num_bytes_in_pipe;
 } Pipe_t;
 
 #define MAX_LOCKS 100

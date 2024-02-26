@@ -37,6 +37,8 @@ int Y_Fork()
         return ERROR;
     }
 
+    TracePrintf(1, "fork point 1\n");
+
     // Update Parent and Child
     child->parent = current_process;
     enqueue(current_process->children, child);
@@ -56,6 +58,8 @@ int Y_Fork()
         child->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
     }
 
+    TracePrintf(1, "fork point 2\n");
+
     // Setup Region 1 Page Table
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
@@ -68,14 +72,19 @@ int Y_Fork()
     kernel_pt[temp_base_page].valid = 1;
     kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
 
+    TracePrintf(1, "fork point 3\n");
+
     // Copy User PT from Parent
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
+        TracePrintf(1, "At top of fork for loop\n");
         if (current_process->userland_pt[i].valid)
         {
             int frame = allocateFrame(empty_frames);
+            TracePrintf(1, "In fork for loop, allocated frame: %d\n", frame);
             if (frame == -1)
             {
+                TracePrintf(1, "bad frame error crap!\n");
                 return ERROR;
             }
             child->userland_pt[i].pfn = frame;
@@ -83,9 +92,9 @@ int Y_Fork()
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
             kernel_pt[temp_base_page].pfn = frame;
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
+            TracePrintf(1, "Yo we here\n");
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
-            memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
+            memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i + VMEM_0_BASE << PAGESHIFT), PAGESIZE);
 
             TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
         }

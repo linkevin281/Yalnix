@@ -6,13 +6,16 @@
 
 #define MAX_ARGS 50
 #define MAX_ARG_LEN 256
+#define REDZONE_SIZE 1
 
 /* Exit Codes */
 #define GENERAL_EXCEPTION           -66
-#define ILLEGAL_MEMORY              -131 
-#define ILLEGAL_INSTRUCTION         -132 // or 4?
+#define EXECPTION_OUT_OF_MEM        -67
+#define ILLEGAL_MEM_ADDR            -131 
+#define ILLEGAL_MEM_STACK_GROWTH    -134
+#define ILLEGAL_INSTRUCTION         -135 // or 4?
 #define FLOATING_POINT_EXCEPTION    -136
-#define MAX_KERNEL_STACK 4096
+
 
 typedef struct pcb pcb_t;
 

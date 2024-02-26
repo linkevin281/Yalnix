@@ -965,25 +965,6 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     return SUCCESS;
 }
 
-void Checkpoint3TrapClock(UserContext *user_context)
-{
-    TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
-    // increment number of clock ticks
-    clock_ticks++;
-    memcpy(&current_process->user_c, user_context, sizeof(UserContext));
-    runProcess();
-    memcpy(user_context, &current_process->user_c, sizeof(UserContext));
-    current_process->state = RUNNING;
-
-    /**
-     * 1. Increment clock (if we go with a global clock)
-     * 2. Check delay queue, find all processes that are ready to be woken up
-     *       a. This delay queue is sorted by delay()
-     * 3. Move these processes from delay queue to ready queue
-     * 4. return to user mode
-     */
-}
-
 // to enqueue a pcb in the delay queue
 // pcb with smallest end time is at tail
 // return 0 on success, -1 on error

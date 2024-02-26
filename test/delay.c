@@ -3,10 +3,8 @@
 
 void main(void)
 {
-    while (1)
-    {
         TracePrintf(1, "Delay 3 ticks\n");
         Delay(3);
-        Pause();
-    }
+        TracePrintf(1, "Delay is OVER!\n");
+        Exit(0);
 }

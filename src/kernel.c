@@ -21,7 +21,6 @@
 
 /* Queues to help indicate which resources are available (by index). */
 Queue_t *ready_queue;
-Queue_t *waiting_queue;
 Queue_t *delay_queue; // This will be sorted.
 Queue_t *empty_locks;
 Queue_t *empty_cvars;

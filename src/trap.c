@@ -42,7 +42,6 @@ void TrapKernel(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Kernel Trap. Syscall code: %d\n", user_context->code);
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
-
     /**
      * 1. Save user context
      * 2. Switch to kernel mode
@@ -83,11 +82,12 @@ void TrapKernel(UserContext *user_context)
         Y_Exit((int)user_context->regs[0]);
         break;
     case YALNIX_TTY_READ:
-        TracePrintf(1, "TRAP TTYREAD REG; 0: %d, 1: %p, 2:%s \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        TracePrintf(1, "TRAP TTYREAD REG; 0: %d, 1: %p, 2:%d \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
         r_value = Y_Ttyread((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
         break;
     case YALNIX_TTY_WRITE:
-        TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%s \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        TracePrintf(1, "in the tty write syscall woooo!\n");
+        TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%d \n", (int)(user_context->regs[0]), (void*)(user_context->regs[1]), (int)(user_context->regs[2]));
         r_value = Y_Ttywrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
         break;
     default:

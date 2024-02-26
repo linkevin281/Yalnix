@@ -475,6 +475,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
         }
         else{
             memcpy(buf, curr_node->data, curr_len);
+            dequeue(input_queue);
         }
     }
 

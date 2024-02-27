@@ -14,10 +14,10 @@ recurse(who, i)
   for (j = 0; j < 1024; j++) 
     waste[j] = 'a';
 
-  TtyPrintf(1, "%s %d\n", who, i);
+  TracePrintf(1, "Target: %s %d\n", who, i);
   if (i == 0)
     {
-      TtyPrintf(1, "Done with recursion\n");
+      TracePrintf(1, "Done with recursion\n");
       return;
     }
   else

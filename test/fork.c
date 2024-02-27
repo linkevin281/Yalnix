@@ -3,6 +3,11 @@
 int main() {
     int pid = Fork();
 
-    TracePrintf(1, "Forked process with pid: %d\n", pid);
+    while (1)
+    {
+        TracePrintf(1, "Forked process with pid: %d\n", pid);
+        Pause();
+    }
+
     Exit(0);
 }

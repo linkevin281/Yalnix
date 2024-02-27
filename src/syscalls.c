@@ -114,7 +114,6 @@ int Y_Fork()
     {
         return ERROR;
     }
-    runProcess();
 
     // If we're the child, return 0
     if (getSize(current_process->children) == 0)

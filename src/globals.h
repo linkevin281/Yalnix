@@ -64,15 +64,13 @@ typedef struct Cvar {
     Queue_t *waiting;
 } Cvar_t;
 
-#define PIPE_SIZE 1024
-
 typedef struct Pipe {
     int id;                    // index in pipes array
     pcb_t* curr_reader;
     pcb_t* curr_writer;
     int read_pos;
     int write_pos;
-    char buffer[PIPE_SIZE]; 
+    char buffer[PIPE_BUFFER_LEN]; 
     Queue_t *readers;
     int in_use;
     int num_bytes_in_pipe;

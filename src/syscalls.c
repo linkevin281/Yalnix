@@ -588,7 +588,7 @@ int Y_Piperead(int pipe_id, void *buf, int len)
         return ERROR;
     }
 
-    if(len > PIPE_SIZE){
+    if(len > PIPE_BUFFER_LEN){
         return ERROR;
     }
 
@@ -608,7 +608,7 @@ int Y_Piperead(int pipe_id, void *buf, int len)
         bytes_read++;
         curr_pipe.read_pos++;
         // wrap the reading position around if needed
-        if(curr_pipe.read_pos >= PIPE_SIZE) curr_pipe.read_pos = 0;
+        if(curr_pipe.read_pos >= PIPE_BUFFER_LEN) curr_pipe.read_pos = 0;
     }
 
     curr_pipe.num_bytes_in_pipe -= bytes_read;
@@ -640,7 +640,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         return ERROR;
     }
 
-    if(len > PIPE_SIZE){
+    if(len > PIPE_BUFFER_LEN){
         return ERROR;
     }
 
@@ -650,7 +650,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         curr_pipe.buffer[curr_pipe.write_pos] = buf_str[pos];
         pos++;
         // wrap around as needed
-        if(curr_pipe.write_pos >= PIPE_SIZE) curr_pipe.write_pos = 0;
+        if(curr_pipe.write_pos >= PIPE_BUFFER_LEN) curr_pipe.write_pos = 0;
     }
 
     return pos + 1;

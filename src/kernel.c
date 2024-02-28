@@ -216,7 +216,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
-
+    
     enqueue(ready_queue, init_process);
 
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
@@ -393,7 +393,7 @@ int runProcess()
     TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
 
     // switch into next process on ready queue or idle process
-    next = isEmpty(ready_queue) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
+    next = (isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
 
     TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
 

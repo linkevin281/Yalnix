@@ -8,18 +8,18 @@ void main(void)
 
 
 
-    // // Writing a line of more than max length
-    // char* longer_than_max = malloc(TERMINAL_MAX_LINE + 10);
-    // for(int i = 0; i < (TERMINAL_MAX_LINE + 10); i++){
-    //     if (i < TERMINAL_MAX_LINE + 9){
-    //         longer_than_max[i] = 'a';
-    //     }
-    //     else{
-    //         longer_than_max[i] = '\n';
-    //     }
-    // }
-    // TtyWrite(0, longer_than_max, TERMINAL_MAX_LINE + 10);
-    // TracePrintf(1, "LET'S GOOOOO WROTE LONGER THAN MAX!!!\n");
+    // Writing a line of more than max length
+    char* longer_than_max = malloc(TERMINAL_MAX_LINE + 10);
+    for(int i = 0; i < (TERMINAL_MAX_LINE + 10); i++){
+        if (i < TERMINAL_MAX_LINE + 9){
+            longer_than_max[i] = 'a';
+        }
+        else{
+            longer_than_max[i] = '\n';
+        }
+    }
+    TtyWrite(0, longer_than_max, TERMINAL_MAX_LINE + 10);
+    TracePrintf(1, "LET'S GOOOOO WROTE LONGER THAN MAX!!!\n");
 
 
 

@@ -42,8 +42,6 @@ int Y_Fork()
     child->parent = current_process;
     enqueue(current_process->children, child);
 
-    TracePrintf(1, "Fork pt 2\n");
-
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
@@ -59,8 +57,6 @@ int Y_Fork()
         child->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
     }
 
-    TracePrintf(1, "Fork pt 3\n");
-
     // Setup Region 1 Page Table
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
@@ -73,7 +69,6 @@ int Y_Fork()
     kernel_pt[temp_base_page].valid = 1;
     kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
 
-    TracePrintf(1, "Fork pt 4\n");
     // Copy User PT from Parent
     for (int i = 0; i < MAX_PT_LEN; i++)
     {

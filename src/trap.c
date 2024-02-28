@@ -113,6 +113,19 @@ void TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
     clock_ticks++;
+    // put delayed processes on ready queue
+    if (getSize(delay_queue) > 0)
+    {
+        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
+        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
+        {
+            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
+            Node_t *delayed_node = dequeue(delay_queue);
+            ((pcb_t*)delayed_node->data)->state = READY;
+            enqueue(ready_queue, delayed_node->data);
+            delayed = (pcb_t *)(peekTail(delay_queue)->data);
+        }
+    }
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));

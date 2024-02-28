@@ -389,19 +389,6 @@ int runProcess()
      */
     TracePrintf(1, "FUNCTION CALL: runProcess\n");
     pcb_t *next;
-    // 1. Handle putting any delayed processes on the ready queue
-    if (getSize(delay_queue) > 0)
-    {
-        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
-        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
-        {
-            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
-            Node_t *delayed_node = dequeue(delay_queue);
-            delayed->state = READY;
-            enqueue(ready_queue, delayed_node->data);
-            delayed = (pcb_t *)peekTail(delay_queue)->data;
-        }
-    }
     
     // 2. Handle putting the current process on the correct queue.
     TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
@@ -979,7 +966,7 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
 
 
     Node_t *curr = peekTail(queue);
-    while (curr != queue->head && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)
+    while (curr->data != NULL && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)
     {
         curr = curr->prev;
     }

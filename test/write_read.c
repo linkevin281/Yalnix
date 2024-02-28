@@ -72,14 +72,16 @@ void main(void)
 
     if(pid == 0){
         len = TtyRead(0, buf_5, TERMINAL_MAX_LINE);
-        TracePrintf(1, "I am the child and I read in %s with output %d\n", buf_5, len);
+        char* info_str = "I am the child and I read in: ";
+        TtyWrite(0, info_str, strlen(info_str) + 1);
+        TtyWrite(0, buf_5, len);
+        Exit(0);
     }
     else{
-        Delay(5);
-        TracePrintf(1, "I am the parent and I am awake now...\n");
-        // we shouldn't get here...
-        len = TtyRead(0, buf_5, TERMINAL_MAX_LINE);
-        TracePrintf(1, "I am the parent and I read in %s with output %d\n", buf_5, len);
+        Delay(15);
+        char* final_text = "Parent exiting!\n";
+        TtyWrite(0, final_text, strlen(final_text) + 1);
+        Exit(0);
     }
 
 

@@ -126,13 +126,15 @@ void TrapClock(UserContext *user_context)
             delayed = (pcb_t *)(peekTail(delay_queue)->data);
         }
     }
+    // if we have a process other than idle to run, run it
+    if(getSize(ready_queue) > 0 && peekTail(ready_queue)->data != idle_process){
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     // move current process to the ready queue
     current_process->state = READY;
     enqueue(ready_queue, current_process);
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
-    current_process->state = RUNNING;
+    }
 }
 
 /**

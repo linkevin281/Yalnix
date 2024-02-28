@@ -32,6 +32,7 @@ int Y_Fork()
     strncpy(name, current_process->name, 248);
     strcat(name, "_child");
     pcb_t *child = (pcb_t *)createPCB(name);
+    TracePrintf(1, "Fork pt 1\n");
     if (child == NULL)
     {
         return ERROR;
@@ -40,6 +41,8 @@ int Y_Fork()
     // Update Parent and Child
     child->parent = current_process;
     enqueue(current_process->children, child);
+
+    TracePrintf(1, "Fork pt 2\n");
 
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
@@ -56,6 +59,8 @@ int Y_Fork()
         child->kernel_stack_pt[i].prot = PROT_READ | PROT_WRITE;
     }
 
+    TracePrintf(1, "Fork pt 3\n");
+
     // Setup Region 1 Page Table
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
@@ -68,28 +73,33 @@ int Y_Fork()
     kernel_pt[temp_base_page].valid = 1;
     kernel_pt[temp_base_page].prot = PROT_READ | PROT_WRITE;
 
+    TracePrintf(1, "Fork pt 4\n");
     // Copy User PT from Parent
     for (int i = 0; i < MAX_PT_LEN; i++)
     {
         if (current_process->userland_pt[i].valid)
         {
             int frame = allocateFrame(empty_frames);
+            TracePrintf(1, "Fork pt 4.1\n");
             if (frame == -1)
             {
+                TracePrintf(1, "frame is -1\n");
                 return ERROR;
             }
+            TracePrintf(1, "Fork pt 4.2\n");
             child->userland_pt[i].pfn = frame;
             child->userland_pt[i].valid = 1;
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
             kernel_pt[temp_base_page].pfn = frame;
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
+            TracePrintf(1, "Fork pt 4.3\n");
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
 
             TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
         }
     }
+    TracePrintf(1, "Fork pt 5\n");
     TracePrintf(1, "Finished copying userland PT\n");
     kernel_pt[temp_base_page].valid = 0;
 

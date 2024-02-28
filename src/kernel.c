@@ -145,11 +145,10 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Initialize trap vectors
     interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
-    // interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
     interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
-    // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
-    // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
-    // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
+    interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
+    interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
+    interrupt_vector_tbl[TRAP_MATH] = TrapMath;
     interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
     interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
     // interrupt_vector_tbl[TRAP_DISK] = TrapDisk;

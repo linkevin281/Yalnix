@@ -92,7 +92,8 @@ int Y_Fork()
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
             kernel_pt[temp_base_page].pfn = frame;
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-            TracePrintf(1, "Fork pt 4.3\n");
+            TracePrintf(1, "Allocated frame %d for page %d\n", frame, i);
+
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
 
@@ -124,7 +125,7 @@ int Y_Fork()
     {
         return ERROR;
     }
-
+    
     // If we're the child, return 0
     if (getSize(current_process->children) == 0)
     {
@@ -505,11 +506,9 @@ int Y_Ttyread(int tty_id, void *buf, int len)
 int Y_Ttywrite(int tty_id, void *buf, int len)
 {
     /**
-     * add process to terminal waiting queue, dispatch next process
      * If address buf is not in kernel memory:
      *      Copy the contents of buf into kernel memory
      * Set can_transmit_to_terminal to false for this terminal
-     * When terminal can be written to:
      * For each chunk of TERMINAL_MAX_LINE size in buf:
      *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
      *      wait for can_write_to_terminal to be true for this terminal

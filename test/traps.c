@@ -1,5 +1,5 @@
 #include <hardware.h>
-#include "src/kernel.h"
+#include "../src/kernel.h"
 #include <yuser.h>
 
 // Testing the mem trap. Lets try to read from a location that is not mapped
@@ -81,8 +81,31 @@ int mem_trap_bounds_down()
     TracePrintf(1, "Did we survive? We should have trapped\n");
 }
 
+void trap_math() 
+{
+    TracePrintf(1, "TEST START: trap_math. Trying to divide by zero\n");
+    int a = 1;
+    int b = 2;
+    int c = a / b;
+    TracePrintf(1, "c: %d\n", c);
+    int d = c / 0;
+    TracePrintf(1, "UHOH SPAGETTIOS: WE SHOULD HAVE DIED\n");
+}
+
 int main()
 {
+    int child1 = Fork();
+    if (child1 == 0)
+    {
+        TracePrintf(1, "TEST: trap_math. I am the child\n");
+        trap_math();
+        return 0;
+    }
+    else
+    {
+        TracePrintf(1, "TEST: trap_math. I am the parent\n");
+    }
+
     mem_trap_grow();
     // mem_trap_exec();
     // mem_trap_bounds_up();

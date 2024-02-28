@@ -977,8 +977,9 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     }
     Node_t *node = createNode(pcb);
 
+
     Node_t *curr = peekTail(queue);
-    while (curr->data != queue->head && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)
+    while (curr != queue->head && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)
     {
         curr = curr->prev;
     }

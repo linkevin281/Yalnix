@@ -252,10 +252,12 @@ void TrapTTYTransmit(UserContext *user_context)
      * Set can_transmit_to_terminal to true for the relevant terminal
      */
 
+    TracePrintf(1, "In trapttytransmit!!!\n");
+
     int terminal_num = user_context->code;
-
+    TracePrintf(1, "TG: in terminal %d\n", terminal_num);
     can_write_to_terminal[terminal_num] = 1;
-
+    TracePrintf(1, "TG: can write to term now\n");
 
 }
 

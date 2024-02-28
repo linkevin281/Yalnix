@@ -4,19 +4,22 @@
 void main(void)
 {
 
+     TtyWrite(0, "hi\n", 4);
 
-    // Writing a line of more than max length
-    char* longer_than_max = malloc(TERMINAL_MAX_LINE + 10);
-    for(int i = 0; i < (TERMINAL_MAX_LINE + 10); i++){
-        if (i < TERMINAL_MAX_LINE + 9){
-            longer_than_max[i] = 'a';
-        }
-        else{
-            longer_than_max[i] = '\n';
-        }
-    }
-    TtyWrite(0, longer_than_max, TERMINAL_MAX_LINE + 10);
-    TracePrintf(1, "LET'S GOOOOO WROTE LONGER THAN MAX!!!\n");
+
+
+    // // Writing a line of more than max length
+    // char* longer_than_max = malloc(TERMINAL_MAX_LINE + 10);
+    // for(int i = 0; i < (TERMINAL_MAX_LINE + 10); i++){
+    //     if (i < TERMINAL_MAX_LINE + 9){
+    //         longer_than_max[i] = 'a';
+    //     }
+    //     else{
+    //         longer_than_max[i] = '\n';
+    //     }
+    // }
+    // TtyWrite(0, longer_than_max, TERMINAL_MAX_LINE + 10);
+    // TracePrintf(1, "LET'S GOOOOO WROTE LONGER THAN MAX!!!\n");
 
 
 
@@ -24,8 +27,8 @@ void main(void)
     // take some input and print result
     char* prompt = "Give me input:";
     TtyWrite(0, prompt, strlen(prompt) + 1);
-    char* buf = malloc(TERMINAL_MAX_LINE);
-    TtyRead(0, buf, TERMINAL_MAX_LINE);
+    char* buf = malloc(TERMINAL_MAX_LINE - 1);
+    TtyRead(0, buf, TERMINAL_MAX_LINE - 1);
     TracePrintf(1, "TGT past reading!\n");
     TracePrintf(1, "given that, buf is now: %s", buf);
     char* give_to_user = "I just read your input as:\n";

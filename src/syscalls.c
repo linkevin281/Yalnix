@@ -292,8 +292,8 @@ int Y_Exit(int status)
                 enqueue(ready_queue, current_process->parent);
             }
         }
-    // no further scheduling logic needed, we can run from ready queue
-    runFromReadyQueue();
+    // no further scheduling logic needed, we can run the next process
+    runProcess();
 }
 
 int Y_Wait(int *status)
@@ -326,7 +326,6 @@ int Y_Wait(int *status)
     current_process->state = WAITING;
     enqueue(waiting_queue, current_process);
     // immediately run the next process
-    runFromReadyQueue();
 
     TracePrintf(1, "WAIT about to run process\n");
     // this will add the current process to the waiting queue
@@ -446,7 +445,7 @@ int Y_Delay(int num_ticks)
     current_process->state = DELAYED;
     enqueueDelayQueue(delay_queue, current_process);
     TracePrintf(1, "SYSCALL: Y_Delay: Process name: %s is in state: %d\n", current_process->name, current_process->state);
-    runFromReadyQueue();
+    runProcess();
     return 0;
 }
 
@@ -472,6 +471,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
     while(curr_node == input_queue->head || peekTail(want_to_read_from[tty_id])->data != current_process){
         // TODO: clean up this logic for queueing 
         current_process->state = READY;
+        enqueue(ready_queue, current_process);
         runProcess();
         curr_node = input_queue->tail->prev;
     }  
@@ -525,6 +525,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     while(peekTail(want_to_write_to[tty_id])->data != current_process){
         // TODO: clean up this scheduling logic
         current_process->state = READY;
+        enqueue(ready_queue, current_process);
         runProcess();
     }
 
@@ -536,6 +537,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
         if(can_write_to_terminal[tty_id] == 0){
             // TODO: clean up this scheduling logic
             current_process->state = READY;
+            enqueue(ready_queue, current_process);
             runProcess();
             continue;
         }
@@ -552,6 +554,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
         }
         // TODO: clean up this scheduling logic
         current_process->state = READY;
+        enqueue(ready_queue, current_process);
         runProcess();
     }
 

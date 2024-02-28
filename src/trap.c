@@ -127,6 +127,9 @@ void TrapClock(UserContext *user_context)
         }
     }
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
+    // move current process to the ready queue
+    current_process->state = READY;
+    enqueue(ready_queue, current_process);
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
     current_process->state = RUNNING;

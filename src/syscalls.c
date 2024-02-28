@@ -83,6 +83,7 @@ int Y_Fork()
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
             kernel_pt[temp_base_page].pfn = frame;
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+            TracePrintf(1, "Allocated frame %d for page %d\n", frame, i);
 
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
@@ -114,7 +115,7 @@ int Y_Fork()
     {
         return ERROR;
     }
-
+    
     // If we're the child, return 0
     if (getSize(current_process->children) == 0)
     {
@@ -440,104 +441,18 @@ int Y_Ttyread(int tty_id, void *buf, int len)
      * Return number of bytes read into buf
      *
      */
-
-    enqueue(want_to_read_from[tty_id], current_process); 
-
-
-    Queue_t* input_queue = terminal_input_buffers[tty_id];
-    int bytes_read = 0;
-    Node_t* curr_node = input_queue->tail->prev;
-
-    // while there is no input available or another node is ahead of us in the read queue, we run other process
-    while(curr_node == input_queue->head || peekTail(want_to_read_from[tty_id])->data != current_process){
-        // TODO: clean up this logic for queueing 
-        current_process->state = READY;
-        runProcess();
-        curr_node = input_queue->tail->prev;
-    }  
-
-    current_process->state = RUNNING;
-
-    // while we can read more bytes or have read all bytes
-    while(bytes_read < len && curr_node != input_queue->head){
-    int curr_len = strlen(curr_node->data);
-    if(curr_len + bytes_read < len){
-            memcpy(buf, curr_node->data, curr_len);
-            bytes_read+= curr_len;
-            dequeue(input_queue);
-            curr_node = input_queue->tail->prev;
-        }
-        else if (curr_len + bytes_read > len){
-            memcpy(buf, curr_node->data, len - bytes_read);
-            curr_node->data += len - bytes_read;
-            bytes_read += len - bytes_read;
-        }
-        else{
-            memcpy(buf, curr_node->data, curr_len);
-            dequeue(input_queue);
-        }
-    }
-
-    dequeue(want_to_read_from[tty_id]);
-    return bytes_read;
 }
 
 int Y_Ttywrite(int tty_id, void *buf, int len)
 {
     /**
-     * add process to terminal waiting queue, dispatch next process
      * If address buf is not in kernel memory:
      *      Copy the contents of buf into kernel memory
      * Set can_transmit_to_terminal to false for this terminal
-     * When terminal can be written to:
      * For each chunk of TERMINAL_MAX_LINE size in buf:
      *      call TTYtransmit to send this to the relevant terminal_output_buffer of the kernel
      *      wait for can_write_to_terminal to be true for this terminal
      */
-
-    enqueue(want_to_write_to[tty_id], current_process);
-
-    // allocate space in kernel to store the string, so it doesn't get lost when we switch processes
-    void* kernel_buff = malloc(len);
-    memcpy(kernel_buff, buf, len);
-
-    // if there's another process in line to write to this terminal, block
-    while(peekTail(want_to_write_to[tty_id])->data != current_process){
-        // TODO: clean up this scheduling logic
-        current_process->state = READY;
-        runProcess();
-    }
-
-    current_process->state = RUNNING;
-
-    int bytes_read = 0;
-
-    while(bytes_read < len && peekTail(want_to_write_to[tty_id])->data == current_process){
-        if(can_write_to_terminal[tty_id] == 0){
-            // TODO: clean up this scheduling logic
-            current_process->state = READY;
-            runProcess();
-            continue;
-        }
-        if(bytes_read + TERMINAL_MAX_LINE < len){
-            TtyTransmit(tty_id, kernel_buff, TERMINAL_MAX_LINE);
-            can_write_to_terminal[tty_id] = 0;
-            kernel_buff += TERMINAL_MAX_LINE;
-            bytes_read += TERMINAL_MAX_LINE;
-        }
-        else{
-            TtyTransmit(tty_id, kernel_buff, len - bytes_read);
-            can_write_to_terminal[tty_id] = 0;
-            bytes_read = len;
-        }
-        // TODO: clean up this scheduling logic
-        current_process->state = READY;
-        runProcess();
-    }
-
-    dequeue(want_to_write_to[tty_id]);
-
-    return bytes_read == len ? len : ERROR;
 }
 
 int Y_Pipeinit(int *pipe_idp)

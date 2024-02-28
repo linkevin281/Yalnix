@@ -20,7 +20,7 @@ U_SRC_DIR = ./test
 
 # What are the user c and include files?
 U_SRCS = init.c idle.c pid.c brk.c delay.c fork.c exec.c wait.c write_read.c bigstack.c forktest.c torture.c zero.c traps.c
-U_INCS = ../src/syscalls.h
+U_INCS = ../src/syscalls.h ../src/kernel.h
 
 
 #==========================================================

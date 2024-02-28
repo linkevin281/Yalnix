@@ -80,13 +80,13 @@ int Y_Fork()
         if (current_process->userland_pt[i].valid)
         {
             int frame = allocateFrame(empty_frames);
-            TracePrintf(1, "Fork pt 4.1\n");
+            //TracePrintf(1, "Fork pt 4.1\n");
             if (frame == -1)
             {
                 TracePrintf(1, "frame is -1\n");
                 return ERROR;
             }
-            TracePrintf(1, "Fork pt 4.2\n");
+            //TracePrintf(1, "Fork pt 4.2\n");
             child->userland_pt[i].pfn = frame;
             child->userland_pt[i].valid = 1;
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
@@ -96,7 +96,7 @@ int Y_Fork()
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
 
-            TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
+            //TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
         }
     }
     TracePrintf(1, "Fork pt 5\n");

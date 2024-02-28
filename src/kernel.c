@@ -444,18 +444,8 @@ int runProcess()
         break;
     }
 
-    // 3. Grab the next process off the ready queue
-    next = (pcb_t *)dequeue(ready_queue)->data;
-
-    TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
-
-    if (KernelContextSwitch(KCSwitch, current_process, next) == ERROR)
-    {
-        TracePrintf(1, "Error in KernelContextSwitch\n");
-        return ERROR;
-    }
-    TracePrintf(1, "Back from KernelContextSwitch\n");
-    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->state, current_process->user_c.pc, current_process->user_c.sp);
+    int res = runFromReadyQueue();
+    return res;
 }
 
 int SetKernelBrk(void *addr)
@@ -977,5 +967,25 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     curr->next->prev = node;
     curr->next = node;
     queue->size++;
+    return 0;
+}
+
+
+// Utility function to run next process from the ready queue, with no scheduling logic
+int runFromReadyQueue(){
+
+    // switch into next process on ready queue or idle process
+    pcb_t* next = isEmpty(ready_queue) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
+
+
+    TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
+
+    if (KernelContextSwitch(KCSwitch, current_process, next) == ERROR)
+    {
+        TracePrintf(1, "Error in KernelContextSwitch\n");
+        return ERROR;
+    }
+    TracePrintf(1, "Back from KernelContextSwitch\n");
+    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->state, current_process->user_c.pc, current_process->user_c.sp);
     return 0;
 }

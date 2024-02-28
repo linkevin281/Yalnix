@@ -405,7 +405,6 @@ int runProcess()
         break;
     case WAITING:
         TracePrintf(1, "reached waiting case in runProcess!\n");
-        enqueue(waiting_queue, current_process);
     case LOCK_BLOCKED:
         break;
     case CVAR_BLOCKED:
@@ -418,25 +417,6 @@ int runProcess()
         break;
     case DEAD:
         TracePrintf(1, "IN DEAD STATE!!!\n");
-        if(current_process->parent != NULL){
-            if(current_process->parent->state == WAITING){
-                TracePrintf(1, "SEARCH for parent!\n");
-                // traverse waiting queue to remove the node
-                Node_t* prev = waiting_queue->head;
-                Node_t* curr = waiting_queue->head->next;
-                while(curr !=  waiting_queue->tail){
-                    if(curr->data == current_process->parent){
-                        prev->next = curr->next;
-                        break;
-                    }
-                    prev = curr;
-                    curr = curr->next;
-                }
-                current_process->parent->state = READY;
-                TracePrintf(1, "TARGET2: \n");
-                enqueue(ready_queue, current_process->parent);
-            }
-        }
         // enqueue(current_process->parent->zombies, current_process); // This line is going to break because our init and idle process hvae no parent.
         break;
     default:

@@ -271,23 +271,29 @@ int Y_Exit(int status)
     TracePrintf(1, "in exit syscall, point 4\n");
     current_process->state = DEAD;
     current_process->exit_status = status;
-
-    // wake processes waiting on this process, add them to ready queue
-    // Node_t *waiter = current_process->waiters->tail->prev;
-    // Node_t *temp;
-    // while (waiter != NULL && waiter != current_process->waiters->head)
-    // {
-    //     TracePrintf(1, "Waiter not null, in loop...\n");
-    //     TracePrintf(1, "Waiter's PID: %d\n", ((pcb_t *)waiter->data)->pid);
-    //     temp = waiter;
-    //     // add the waiter to the ready queue
-    //     enqueue(ready_queue, (void *)waiter->data);
-    //     // remove the waiter from the waiters list
-    //     dequeue(current_process->waiters);
-    //     waiter = temp->prev;
-    // }
-
-    runProcess();
+    
+    // wake parent, if waiting on this process, and add to the ready queue
+    if(current_process->parent != NULL){
+            if(current_process->parent->state == WAITING){
+                TracePrintf(1, "SEARCH for parent!\n");
+                // traverse waiting queue to remove the node
+                Node_t* prev = waiting_queue->head;
+                Node_t* curr = waiting_queue->head->next;
+                while(curr !=  waiting_queue->tail){
+                    if(curr->data == current_process->parent){
+                        prev->next = curr->next;
+                        break;
+                    }
+                    prev = curr;
+                    curr = curr->next;
+                }
+                current_process->parent->state = READY;
+                TracePrintf(1, "TARGET2: \n");
+                enqueue(ready_queue, current_process->parent);
+            }
+        }
+    // no further scheduling logic needed, we can run from ready queue
+    runFromReadyQueue();
 }
 
 int Y_Wait(int *status)
@@ -318,6 +324,9 @@ int Y_Wait(int *status)
     }
 
     current_process->state = WAITING;
+    enqueue(waiting_queue, current_process);
+    // immediately run the next process
+    runFromReadyQueue();
 
     TracePrintf(1, "WAIT about to run process\n");
     // this will add the current process to the waiting queue
@@ -435,8 +444,9 @@ int Y_Delay(int num_ticks)
     TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
     current_process->state = DELAYED;
+    enqueueDelayQueue(delay_queue, current_process);
     TracePrintf(1, "SYSCALL: Y_Delay: Process name: %s is in state: %d\n", current_process->name, current_process->state);
-    runProcess();
+    runFromReadyQueue();
     return 0;
 }
 

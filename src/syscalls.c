@@ -105,7 +105,6 @@ int Y_Fork()
 
     // Copy other PCB fields
     child->delayed_until = current_process->delayed_until;
-    child->state = current_process->state;
     // TODO:
     // Copy zombies
     // Copy waiters
@@ -264,12 +263,12 @@ int Y_Exit(int status)
     enqueue(current_process->parent->zombies, current_process);
 
     TracePrintf(1, "in exit syscall, point 4\n");
-    current_process->state = DEAD;
     current_process->exit_status = status;
     
     // wake parent, if waiting on this process, and add to the ready queue
     if(current_process->parent != NULL){
-            if(current_process->parent->state == WAITING){
+        TracePrintf(1, "FUCK parent found!\n");
+            if(current_process->parent->is_waiting == 1){
                 TracePrintf(1, "SEARCH for parent!\n");
                 // traverse waiting queue to remove the node
                 Node_t* prev = waiting_queue->head;
@@ -282,7 +281,6 @@ int Y_Exit(int status)
                     prev = curr;
                     curr = curr->next;
                 }
-                current_process->parent->state = READY;
                 TracePrintf(1, "TARGET2: \n");
                 enqueue(ready_queue, current_process->parent);
             }
@@ -318,8 +316,8 @@ int Y_Wait(int *status)
         return child->pid;
     }
 
-    current_process->state = WAITING;
     enqueue(waiting_queue, current_process);
+    current_process->is_waiting = 1;
     // immediately run the next process
 
     TracePrintf(1, "WAIT about to run process\n");
@@ -437,9 +435,8 @@ int Y_Delay(int num_ticks)
      */
     TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
-    current_process->state = DELAYED;
     enqueueDelayQueue(delay_queue, current_process);
-    TracePrintf(1, "SYSCALL: Y_Delay: Process name: %s is in state: %d\n", current_process->name, current_process->state);
+    TracePrintf(1, "SYSCALL: Y_Delay: Process name: %s\n", current_process->name);
     runProcess();
     return 0;
 }
@@ -465,13 +462,10 @@ int Y_Ttyread(int tty_id, void *buf, int len)
     // while there is no input available or another node is ahead of us in the read queue, we run other process
     while(curr_node == input_queue->head || peekTail(want_to_read_from[tty_id])->data != current_process){
         // TODO: clean up this logic for queueing 
-        current_process->state = READY;
         enqueue(ready_queue, current_process);
         runProcess();
         curr_node = input_queue->tail->prev;
-    }  
-
-    current_process->state = RUNNING;
+    }
 
     // while we can read more bytes or have read all bytes
     while(bytes_read < len && curr_node != input_queue->head){
@@ -517,19 +511,14 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     // if there's another process in line to write to this terminal, block
     while(peekTail(want_to_write_to[tty_id])->data != current_process){
         // TODO: clean up this scheduling logic
-        current_process->state = READY;
         enqueue(ready_queue, current_process);
         runProcess();
     }
-
-    current_process->state = RUNNING;
 
     int bytes_read = 0;
 
     while(bytes_read < len && peekTail(want_to_write_to[tty_id])->data == current_process){
         if(can_write_to_terminal[tty_id] == 0){
-            // TODO: clean up this scheduling logic
-            current_process->state = READY;
             enqueue(ready_queue, current_process);
             runProcess();
             continue;
@@ -545,8 +534,6 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
             can_write_to_terminal[tty_id] = 0;
             bytes_read = len;
         }
-        // TODO: clean up this scheduling logic
-        current_process->state = READY;
         enqueue(ready_queue, current_process);
         runProcess();
     }

@@ -95,14 +95,12 @@ void TrapClock(UserContext *user_context)
         {
             TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
             Node_t *delayed_node = dequeue(delay_queue);
-            ((pcb_t*)delayed_node->data)->state = READY;
             enqueue(ready_queue, delayed_node->data);
             delayed = (pcb_t *)(peekTail(delay_queue)->data);
         }
     }
     // if we have a process other than idle to run, run it
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
-    current_process->state = READY;
     // only put current process on ready queue if it isn't idle
     if(current_process != idle_process) enqueue(ready_queue, current_process);
     runProcess();

@@ -390,7 +390,7 @@ int runProcess()
     pcb_t *next;
     
     // 2. Handle putting the current process on the correct queue.
-    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
+    TracePrintf(1, "Current Process; Name: %s { %d }\n", current_process->name, current_process->pid);
 
     // switch into next process on ready queue or idle process
     next = (isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
@@ -403,7 +403,7 @@ int runProcess()
         return ERROR;
     }
     TracePrintf(1, "Back from KernelContextSwitch\n");
-    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->state, current_process->user_c.pc, current_process->user_c.sp);
+    TracePrintf(1, "Current Process; Name: %s { %d }; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->user_c.pc, current_process->user_c.sp);
     return 0;
 }
 
@@ -510,7 +510,6 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     LoadProgram(name, args, idle_process);
-    idle_process->state = RUNNING; // The idle process is FIRST RUNNING
 
     TracePrintf(1, "FUNCTION RETURN: initIdleProcess\n");
     return idle_process;
@@ -569,11 +568,11 @@ pcb_t *createPCB(char* name)
     strncpy(pcb->name, name, 255);
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
-    pcb->state = READY;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
     pcb->waiters = createQueue();
     pcb->brk = 0;
+    pcb->is_waiting = 0;
 
     TracePrintf(1, "FUNCTION RETURN: createPCB\n");
     return pcb;

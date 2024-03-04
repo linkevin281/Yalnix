@@ -86,8 +86,7 @@ int Y_Fork()
             child->userland_pt[i].valid = 1;
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
             kernel_pt[temp_base_page].pfn = frame;
-            WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-            TracePrintf(1, "Allocated frame %d for page %d\n", frame, i);
+            WriteRegister(REG_TLB_FLUSH, temp_base_page << PAGESHIFT);
 
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);

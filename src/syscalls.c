@@ -267,7 +267,6 @@ int Y_Exit(int status)
     
     // wake parent, if waiting on this process, and add to the ready queue
     if(current_process->parent != NULL){
-        TracePrintf(1, "FUCK parent found!\n");
             if(current_process->parent->is_waiting == 1){
                 TracePrintf(1, "SEARCH for parent!\n");
                 // traverse waiting queue to remove the node

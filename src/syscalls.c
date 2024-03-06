@@ -230,6 +230,8 @@ int Y_Exit(int status)
 
     TracePrintf(1, "SYSCALL: Y_Exit\n");
 
+    current_process->is_alive = 0;
+
     // return all of userland to free frames queue
     int frame_to_free;
     for (int i = 0; i < MAX_PT_LEN; i++)
@@ -266,6 +268,12 @@ int Y_Exit(int status)
 
     TracePrintf(1, "in exit syscall, point 4\n");
     current_process->exit_status = status;
+
+    // wake parent, if waiting on this process, and add to the ready queue
+    if (current_process->parent != NULL && current_process->parent->is_alive)
+    {
+        enqueue(ready_queue, current_process->parent);
+    }
 
     // Release all held locks and wake any processes on them. Wake parent, if waiting on this process, and add to the ready queue
     for (int i = 0; i < NUM_LOCKS; i++)
@@ -598,6 +606,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
 
 int Y_Pipeinit(int *pipe_idp)
 {
+    TracePrintf(1, "SYSCALL: Y_Pipeinit\n");
     /**
      * 1. Check if pipe_idp is valid, if not, ERROR
      * 2. Get first available pipe_id from free pipe queue
@@ -801,6 +810,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
  */
 int Y_LockInit(int *lock_idp)
 {
+    TracePrintf(1, "SYSCALL: Y_LockInit\n");
     Node_t *lock_node = dequeue(empty_locks);
     if (lock_node == NULL)
     {
@@ -819,6 +829,7 @@ int Y_LockInit(int *lock_idp)
  */
 int Y_Acquire(int lock_id)
 {
+    TracePrintf(1, "SYSCALL: Y_Acquire\n");
     if (lock_id >= NUM_LOCKS || lock_id < 0)
     {
         return ERROR;
@@ -833,6 +844,8 @@ int Y_Acquire(int lock_id)
  */
 int Y_Release(int lock_id)
 {
+    TracePrintf(1, "SYSCALL: Y_Release\n");
+    TracePrintf(1, "Lock id: %d\n", lock_id);
     if (lock_id >= NUM_LOCKS || lock_id < 0)
     {
         return ERROR;
@@ -906,7 +919,7 @@ Lock_t *createLock(int lock_id)
     lock->lock_id = lock_id;
     lock->owner_pcb = NULL;
     lock->is_locked = 0;
-    lock->waiting_queue = createQueue();
+    lock->waiting = createQueue();
     return lock;
 }
 
@@ -916,15 +929,22 @@ Lock_t *createLock(int lock_id)
  */
 int acquireLock(Lock_t *lock, pcb_t *pcb)
 {
+    TracePrintf(1, "Acquirer pid: %d\n", pcb->pid);
     if (lock->is_locked == 0)
     {
         lock->is_locked = 1;
         lock->owner_pcb = pcb;
+        enqueue(pcb->owned_locks, lock->lock_id);
         return SUCCESS;
+    }
+    else if (lock->owner_pcb->pid == pcb->pid)
+    {
+        TracePrintf(1, "Process already owns lock\n");
+        return ERROR;
     }
     else
     {
-        enqueue(lock->waiting_queue, pcb);
+        enqueue(lock->waiting, pcb);
         runProcess();
         return SUCCESS;
     }
@@ -935,19 +955,29 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
  */
 int releaseLock(Lock_t *lock, pcb_t *pcb)
 {
-    if (lock->owner_pcb->pid != pcb->pid)
+    TracePrintf(1, "FUNCTION: releaseLock\n");
+    TracePrintf(1, "Lock id: %d\n", lock->lock_id);
+    if (lock->is_locked == 0)
     {
+        TracePrintf(1, "Not locked\n");
         return ERROR;
     }
-    if (lock->waiting_queue->size == 0)
+    else if (lock->owner_pcb->pid != pcb->pid)
     {
+        TracePrintf(1, "Not owner\n");
+        return ERROR;
+    }
+    if (lock->waiting->size == 0)
+    {
+        TracePrintf(1, "No waiting\n");
         lock->is_locked = 0;
         lock->owner_pcb = NULL;
+        removeFrameNode(pcb->owned_locks, lock->lock_id);
         return SUCCESS;
     }
     else
     {
-        Node_t *node = dequeue(lock->waiting_queue);
+        Node_t *node = dequeue(lock->waiting);
         pcb_t *pcb = (pcb_t *)node->data;
         free(node);
         enqueue(ready_queue, pcb);
@@ -966,7 +996,7 @@ Cvar_t *createCvar(int cvar_id)
         return NULL;
     }
     cvar->cvar_id = cvar_id;
-    cvar->waiting_queue = createQueue();
+    cvar->waiting = createQueue();
     return cvar;
 }
 
@@ -984,7 +1014,7 @@ int cWait(Cvar_t *cvar, Lock_t *lock, pcb_t *caller, UserContext *user_context)
         return ERROR_NOT_OWNER;
     }
     releaseLock(lock, lock->owner_pcb);
-    enqueue(cvar->waiting_queue, lock->owner_pcb);
+    enqueue(cvar->waiting, lock->owner_pcb);
 
     runProcess();
 
@@ -997,11 +1027,11 @@ int cWait(Cvar_t *cvar, Lock_t *lock, pcb_t *caller, UserContext *user_context)
  */
 int cSignal(Cvar_t *cvar, pcb_t *caller)
 {
-    if (cvar->waiting_queue->size == 0)
+    if (cvar->waiting->size == 0)
     {
         return SUCCESS;
     }
-    Node_t *node = dequeue(cvar->waiting_queue);
+    Node_t *node = dequeue(cvar->waiting);
     pcb_t *pcb = (pcb_t *)node->data;
     free(node);
     enqueue(ready_queue, pcb);
@@ -1013,9 +1043,9 @@ int cSignal(Cvar_t *cvar, pcb_t *caller)
  */
 int cBroadcast(Cvar_t *cvar, pcb_t *caller)
 {
-    while (cvar->waiting_queue->size > 0)
+    while (cvar->waiting->size > 0)
     {
-        Node_t *node = dequeue(cvar->waiting_queue);
+        Node_t *node = dequeue(cvar->waiting);
         pcb_t *pcb = (pcb_t *)node->data;
         free(node);
         enqueue(ready_queue, pcb);

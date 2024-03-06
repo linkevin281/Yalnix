@@ -234,7 +234,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         lock->lock_id = i;
         lock->owner_pcb = NULL;
         lock->is_locked = 0;
-        lock->waiting_queue = createQueue();
+        lock->waiting = createQueue();
         enqueue(empty_locks, lock);
         locks[i] = *lock;
     }
@@ -242,7 +242,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     {
         Cvar_t *cvar = (Cvar_t *)malloc(sizeof(Cvar_t));
         cvar->cvar_id = i;
-        cvar->waiting_queue = createQueue();
+        cvar->waiting = createQueue();
         enqueue(empty_cvars, cvar);
         cvars[i] = *cvar;
     }
@@ -635,7 +635,7 @@ pcb_t *createPCB(char *name)
     pcb->waiters = createQueue();
     pcb->pipes = createQueue();
     pcb->brk = 0;
-    pcb->is_waiting = 0;
+    pcb->is_alive = 1;
 
     TracePrintf(1, "FUNCTION RETURN: createPCB\n");
     return pcb;

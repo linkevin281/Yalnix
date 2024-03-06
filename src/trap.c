@@ -56,22 +56,29 @@ void TrapKernel(UserContext *user_context)
         Y_Exit((int)user_context->regs[0]);
         break;
     case YALNIX_TTY_READ:
-        TracePrintf(1, "TRAP TTYREAD REG; 0: %d, 1: %p, 2:%d \n", (int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
-        r_value = Y_Ttyread((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        TracePrintf(1, "TRAP TTYREAD REG; 0: %d, 1: %p, 2:%d \n", (int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
+        r_value = Y_Ttyread((int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
         break;
     case YALNIX_TTY_WRITE:
         TracePrintf(1, "in the tty write syscall woooo!\n");
-        TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%d \n", (int)(user_context->regs[0]), (void*)(user_context->regs[1]), (int)(user_context->regs[2]));
-        r_value = Y_Ttywrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        TracePrintf(1, "TRAP TTYWRITE REG; 0: %d, 1: %p, 2:%d \n", (int)(user_context->regs[0]), (void *)(user_context->regs[1]), (int)(user_context->regs[2]));
+        r_value = Y_Ttywrite((int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
         break;
     case YALNIX_PIPE_INIT:
         r_value = Y_Pipeinit((int *)user_context->regs[0]);
         break;
     case YALNIX_PIPE_WRITE:
-        r_value = Y_Pipewrite((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        r_value = Y_Pipewrite((int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
         break;
     case YALNIX_PIPE_READ:
-        r_value = Y_Piperead((int)user_context->regs[0], (void*)user_context->regs[1], (int)user_context->regs[2]);
+        r_value = Y_Piperead((int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
+    case YALNIX_LOCK_ACQUIRE:
+        TracePrintf(1, "TRAP LOCK_ACQUIRE REG; 0: %d\n", (int)user_context->regs[0]);
+        r_value = Y_Acquire((int)user_context->regs[0]);
+        break;
+    case YALNIX_LOCK_RELEASE:
+        TracePrintf(1, "TRAP LOCK_RELEASE REG; 0: %d\n", (int)user_context->regs[0]);
+        r_value = Y_Release((int)user_context->regs[0]);
         break;
     default:
         break;
@@ -112,7 +119,8 @@ void TrapClock(UserContext *user_context)
     // if we have a process other than idle to run, run it
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
     // only put current process on ready queue if it isn't idle
-    if(current_process != idle_process) enqueue(ready_queue, current_process);
+    if (current_process != idle_process)
+        enqueue(ready_queue, current_process);
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
 }
@@ -235,21 +243,22 @@ void TrapTTYReceive(UserContext *user_context)
      *      Allocate buf of size MAXIMUM_TERMINAL_INPUT on kernel heap
      *      Make linked list node storing the buf, add it to relevant user's terminal input buffer
      *      Execute ttyReceive machine instruction to read user input into buf, with max len of MAXIMUM_TERMINAL_INPUT.
-     * 
+     *
      */
 
     TracePrintf(1, "In trapttyreceive!!!\n");
 
     int terminal_num = user_context->code;
-    void* address_to_copy_to = malloc(TERMINAL_MAX_LINE);
+    void *address_to_copy_to = malloc(TERMINAL_MAX_LINE);
 
     int input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
     enqueue(terminal_input_buffers[terminal_num], address_to_copy_to);
-    
-    while(input_length == TERMINAL_MAX_LINE){
+
+    while (input_length == TERMINAL_MAX_LINE)
+    {
         address_to_copy_to = malloc(TERMINAL_MAX_LINE);
         input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
-        Node_t* new_node = createNode(address_to_copy_to);
+        Node_t *new_node = createNode(address_to_copy_to);
         enqueue(terminal_input_buffers[terminal_num], new_node);
     }
 }
@@ -266,7 +275,6 @@ void TrapTTYTransmit(UserContext *user_context)
     TracePrintf(1, "TG: in terminal %d\n", terminal_num);
     can_write_to_terminal[terminal_num] = 1;
     TracePrintf(1, "TG: can write to term now\n");
-
 }
 
 /**

@@ -90,8 +90,8 @@ extern int can_write_to_terminal[NUM_TERMINALS];
 extern int can_read_from_terminal[NUM_TERMINALS];
 
 // queues of processes waiting to read or write from pipes
-extern Queue_t* pipe_write_queues[MAX_PIPES];
-extern Queue_t* pipe_read_queues[MAX_PIPES];
+extern Queue_t* want_to_read_pipe[MAX_PIPES];
+extern Queue_t* want_to_write_pipe[MAX_PIPES];
 
 // 0 if we can't read or write to pipe at the moment, 1 otherwise
 extern int can_interact_with_pipe[MAX_PIPES];

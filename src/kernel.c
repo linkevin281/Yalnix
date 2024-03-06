@@ -39,8 +39,8 @@ Queue_t* want_to_write_to[NUM_TERMINALS];
 int can_write_to_terminal[NUM_TERMINALS];
 int can_read_from_terminal[NUM_TERMINALS];
 
-Queue_t* pipe_write_queues[MAX_PIPES];
-Queue_t* pipe_read_queues[MAX_PIPES];
+Queue_t* want_to_write_pipe[MAX_PIPES];
+Queue_t* want_to_read_pipe[MAX_PIPES];
 
 int can_interact_with_pipe[MAX_PIPES];
 
@@ -219,8 +219,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         enqueue(empty_pipes, to_enqueue);
         Queue_t* pq_1 = createQueue();
         Queue_t* pq_2 = createQueue();
-        pipe_read_queues[i] = pq_1;
-        pipe_write_queues[i] = pq_2;
+        want_to_read_pipe[i] = pq_1;
+        want_to_write_pipe[i] = pq_2;
         can_interact_with_pipe[i] = 1;
     }
 

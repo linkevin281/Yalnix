@@ -558,7 +558,6 @@ int Y_Pipeinit(int *pipe_idp)
     memcpy(pipe_idp, &available_pipe_id, sizeof(int));
     pipes[available_pipe_id].exists = 1;
     return available_pipe_id;
-
 }
 
 int Y_Piperead(int pipe_id, void *buf, int len)
@@ -572,47 +571,65 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 6.   Increment read_pos by len
      * 7.   Return len
      */
-    Pipe_t curr_pipe = pipes[pipe_id];
+    Pipe_t* curr_pipe = &(pipes[pipe_id]);
 
     char* buf_holder = (char*) buf;
-
-    if(curr_pipe.exists == 0){
+    if(curr_pipe->exists == 0){
         return ERROR;
     }
 
     if(len > PIPE_BUFFER_LEN){
         return ERROR;
     }
+    int bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
 
-    int bytes_to_read = len > curr_pipe.num_bytes_in_pipe ? curr_pipe.num_bytes_in_pipe : len;
-
-    Queue_t* pipe_reading_queue = pipe_read_queues[pipe_id];
+    Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
 
     enqueue(pipe_reading_queue, current_process);
-
     // wait for bytes to read
     while(bytes_to_read < 1 || peekTail(pipe_reading_queue)->data != current_process || can_interact_with_pipe[pipe_id] == 0){
+        TracePrintf(1, "In loop and bytes to read: %d\n", bytes_to_read);
+        if(peekTail(pipe_reading_queue)->data != current_process){
+            TracePrintf(1, "In loop and decided we aren't first in queue\n");
+        }
+        if(can_interact_with_pipe[pipe_id] == 0){
+            TracePrintf(1, "We just can't interact with pipe\n");
+        }
         runProcess();
     }
 
     int bytes_read = 0;
     int pos = 0;
-
     // make sure nothing else interacts with our pipe while we do the below
     can_interact_with_pipe[pipe_id] = 0;
 
     while(bytes_read < bytes_to_read){
-        buf_holder[pos] = curr_pipe.buffer[curr_pipe.read_pos];
+        TracePrintf(1, "bytes_read: %d\n pos: %d\n current char: %c\n", bytes_read, pos, curr_pipe->buffer[curr_pipe->read_pos]);
+        buf_holder[pos] = curr_pipe->buffer[curr_pipe->read_pos];
         bytes_read++;
-        curr_pipe.read_pos++;
+        curr_pipe->read_pos++;
+        pos++;
         // wrap the reading position around if needed
-        if(curr_pipe.read_pos >= PIPE_BUFFER_LEN) curr_pipe.read_pos = 0;
+        if(curr_pipe->read_pos >= PIPE_BUFFER_LEN) curr_pipe->read_pos = 0;
     }
 
-    curr_pipe.num_bytes_in_pipe -= bytes_read;
+    curr_pipe->num_bytes_in_pipe -= bytes_read;
 
     can_interact_with_pipe[pipe_id] = 1;
     dequeue(pipe_reading_queue);
+
+    // if more processes want to read or write from the pipe, put them in the ready queue
+    if(getSize(pipe_reading_queue) > 0){
+        Node_t* curr_node = dequeue(pipe_reading_queue);
+        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    }
+
+    Queue_t* pipe_writing_queue = want_to_write_pipe[pipe_id];
+    if(getSize(pipe_writing_queue) > 0){
+        Node_t* curr_node = dequeue(pipe_writing_queue);
+        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    }
+
 
     return bytes_read;
 
@@ -633,11 +650,10 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      *
      */
 
-    Pipe_t curr_pipe = pipes[pipe_id];
-
+    Pipe_t* curr_pipe = &(pipes[pipe_id]);
     char* buf_str = (char*) buf;
 
-    if(curr_pipe.exists == 0){
+    if(curr_pipe->exists == 0){
         return ERROR;
     }
 
@@ -645,7 +661,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         return ERROR;
     }
 
-    Queue_t* pipe_writing_queue = pipe_write_queues[pipe_id];
+    Queue_t* pipe_writing_queue = want_to_write_pipe[pipe_id];
 
     enqueue(pipe_writing_queue, current_process);
 
@@ -657,16 +673,35 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
     int pos = 0;
 
     can_interact_with_pipe[pipe_id] = 0;
-
     while(pos < len){
-        curr_pipe.buffer[curr_pipe.write_pos] = buf_str[pos];
+        TracePrintf(1, "In loop, pos: %d\n", pos);
+        TracePrintf(1, "In loop, len: %d\n", len);
+        TracePrintf(1, "In loop, writing char: %c\n", buf_str[pos]);
+        curr_pipe->buffer[curr_pipe->write_pos] = buf_str[pos];
+        TracePrintf(1, "In loop, char actually written: %c\n", curr_pipe->buffer[curr_pipe->write_pos]);
+        curr_pipe->num_bytes_in_pipe++;
+        TracePrintf(1, "In loop, num bytes in pipe is: %d\n", curr_pipe->num_bytes_in_pipe);
         pos++;
+        curr_pipe->write_pos++;
         // wrap around as needed
-        if(curr_pipe.write_pos >= PIPE_BUFFER_LEN) curr_pipe.write_pos = 0;
+        if(curr_pipe->write_pos >= PIPE_BUFFER_LEN) curr_pipe->write_pos = 0;
     }
 
     can_interact_with_pipe[pipe_id] = 1;
     dequeue(pipe_writing_queue);
+
+    // if more processes want to read or write from the pipe, put them in the ready queue
+    if(getSize(pipe_writing_queue) > 0){
+        Node_t* curr_node = dequeue(pipe_writing_queue);
+        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    }
+
+    Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
+
+    if(getSize(pipe_reading_queue) > 0){
+        Node_t* curr_node = dequeue(pipe_reading_queue);
+        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    }
 
     return pos;
 

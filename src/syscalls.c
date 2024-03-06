@@ -76,13 +76,13 @@ int Y_Fork()
         if (current_process->userland_pt[i].valid)
         {
             int frame = allocateFrame(empty_frames);
-            //TracePrintf(1, "Fork pt 4.1\n");
+            // TracePrintf(1, "Fork pt 4.1\n");
             if (frame == -1)
             {
                 TracePrintf(1, "frame is -1\n");
                 return ERROR;
             }
-            //TracePrintf(1, "Fork pt 4.2\n");
+            // TracePrintf(1, "Fork pt 4.2\n");
             child->userland_pt[i].pfn = frame;
             child->userland_pt[i].valid = 1;
             child->userland_pt[i].prot = current_process->userland_pt[i].prot;
@@ -92,7 +92,7 @@ int Y_Fork()
             // Copy Mem at page i (add VMEM_0_SIZE to get to userland) to new frame
             memcpy((void *)(temp_base_page << PAGESHIFT), (void *)(i << PAGESHIFT) + VMEM_0_SIZE, PAGESIZE);
 
-            //TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
+            // TracePrintf(1, "Copied page %d to frame %d\n", i, frame);
         }
     }
     TracePrintf(1, "Fork pt 5\n");
@@ -119,7 +119,7 @@ int Y_Fork()
     {
         return ERROR;
     }
-    
+
     // If we're the child, return 0
     if (getSize(current_process->children) == 0)
     {
@@ -132,10 +132,9 @@ int Y_Fork()
     }
 }
 
-
 /**
  * Executes a new process.
- * 
+ *
  * 1. Save Args and Filename in Kernel Heap
  * 2. Deallocate Stack Frames
  * 3. Create PCB
@@ -143,7 +142,7 @@ int Y_Fork()
  * 5. Setup Region 1 Page Table
  * 6. Copy Kernel Context (copies stack)
  * 7. Load Program
-*/
+ */
 int Y_Exec(char *filename, char *argv[])
 {
     TracePrintf(1, "SYSCALL: Y_Exec\n");
@@ -267,37 +266,29 @@ int Y_Exit(int status)
 
     TracePrintf(1, "in exit syscall, point 4\n");
     current_process->exit_status = status;
-    
-    // wake parent, if waiting on this process, and add to the ready queue
-    if(current_process->parent != NULL){
-            if(current_process->parent->is_waiting == 1){
-                TracePrintf(1, "SEARCH for parent!\n");
-                // traverse waiting queue to remove the node
-                Node_t* prev = waiting_queue->head;
-                Node_t* curr = waiting_queue->head->next;
-                while(curr !=  waiting_queue->tail){
-                    if(curr->data == current_process->parent){
-                        prev->next = curr->next;
-                        break;
-                    }
-                    prev = curr;
-                    curr = curr->next;
-                }
-                TracePrintf(1, "TARGET2: \n");
-                enqueue(ready_queue, current_process->parent);
-            }
+
+    // Release all held locks and wake any processes on them. Wake parent, if waiting on this process, and add to the ready queue
+    for (int i = 0; i < NUM_LOCKS; i++)
+    {
+        if (locks[i].owner_pcb != NULL && locks[i].owner_pcb->pid == current_process->pid)
+        {
+            TracePrintf(1, "Found a lock that is owned by a dead process. Pid %d, lockID: %d\n", current_process->pid, locks[i].lock_id);
+            releaseLock(&locks[i], current_process);
         }
+    }
 
     // free pipes that this process was involved with, as needed
     // idle process is used as a placeholder for pipe reader/writer with processes that have died
-    Queue_t* curr_pipe_queue = current_process->pipes;
-    Node_t* curr_pipe_node;
+    Queue_t *curr_pipe_queue = current_process->pipes;
+    Node_t *curr_pipe_node;
 
-    while((curr_pipe_node = dequeue(curr_pipe_queue)) != NULL){
-        Pipe_t* curr_pipe = (Pipe_t*)(curr_pipe_node->data);
+    while ((curr_pipe_node = dequeue(curr_pipe_queue)) != NULL)
+    {
+        Pipe_t *curr_pipe = (Pipe_t *)(curr_pipe_node->data);
         // if both reader and writer of the pipe are gone, we free the pipe
-        if((curr_pipe->reader == current_process && curr_pipe->writer == idle_process)||
-        (curr_pipe->writer == current_process && curr_pipe->reader == idle_process)){
+        if ((curr_pipe->reader == current_process && curr_pipe->writer == idle_process) ||
+            (curr_pipe->writer == current_process && curr_pipe->reader == idle_process))
+        {
             // clean the relevant pipe
             // add relevant pipe to empty pipes queue
             TracePrintf(1, "KILLING pipe %d", curr_pipe->id);
@@ -309,20 +300,22 @@ int Y_Exit(int status)
             pipes[i].num_bytes_in_pipe = 0;
             pipes[i].reader = NULL;
             pipes[i].writer = NULL;
-            int* to_enqueue = malloc(sizeof(int));
+            int *to_enqueue = malloc(sizeof(int));
             memcpy(to_enqueue, &i, sizeof(int));
             enqueue(empty_pipes, to_enqueue);
-            Queue_t* pq_1 = createQueue();
-            Queue_t* pq_2 = createQueue();
+            Queue_t *pq_1 = createQueue();
+            Queue_t *pq_2 = createQueue();
             want_to_read_pipe[i] = pq_1;
             want_to_write_pipe[i] = pq_2;
             can_interact_with_pipe[i] = 1;
         }
 
-        else if (curr_pipe->reader == current_process){
+        else if (curr_pipe->reader == current_process)
+        {
             curr_pipe->reader = idle_process;
         }
-        else if (curr_pipe->writer == current_process){
+        else if (curr_pipe->writer == current_process)
+        {
             curr_pipe->writer = idle_process;
         }
         free(curr_pipe_node);
@@ -343,41 +336,44 @@ int Y_Wait(int *status)
      */
 
     // return error if no dead children
-    if (getSize(current_process->children) == 0 && getSize(current_process->zombies) == 0) {
+    if (getSize(current_process->children) == 0 && getSize(current_process->zombies) == 0)
+    {
         TracePrintf(1, "WAIT error\n");
         return ERROR;
     }
 
-    else if (getSize(current_process->zombies) > 0){
+    else if (getSize(current_process->zombies) > 0)
+    {
         TracePrintf(1, "WAIT zombies in queue!\n");
-        Node_t* child_container = dequeue(current_process->zombies);
-        pcb_t* child = child_container->data;
-        if(status != NULL){
+        Node_t *child_container = dequeue(current_process->zombies);
+        pcb_t *child = child_container->data;
+        if (status != NULL)
+        {
             memcpy(status, &(child->exit_status), sizeof(int));
         }
         free(child_container);
         return child->pid;
     }
 
-    enqueue(waiting_queue, current_process);
-    current_process->is_waiting = 1;
     // immediately run the next process
 
     TracePrintf(1, "WAIT about to run process\n");
     // this will add the current process to the waiting queue
-    while(getSize(current_process->zombies) < 1){
+    while (getSize(current_process->zombies) < 1)
+    {
         runProcess();
     }
     TracePrintf(1, "WAIT run process complete!\n");
 
     // at this point, there will be a zombie
     TracePrintf(1, "size of zombies queue: %d\n", getSize(current_process->zombies));
-    Node_t* child_container = dequeue(current_process->zombies);
+    Node_t *child_container = dequeue(current_process->zombies);
     TracePrintf(1, "WAIT checkpoint 1\n");
-    pcb_t* child = child_container->data;
+    pcb_t *child = child_container->data;
     TracePrintf(1, "TAGET child's pid: %d\n", child->pid);
     TracePrintf(1, "WAIT checkpoint 2\n");
-    if(status != NULL){
+    if (status != NULL)
+    {
         memcpy(status, &(child->exit_status), sizeof(int));
     }
     TracePrintf(1, "the child is done let's gooooo!\n");
@@ -414,13 +410,14 @@ int Y_Brk(void *addr)
     */
     TracePrintf(1, "highest text addr: %p\n", current_process->highest_text_addr);
     // return error if addr > stack pointer
-    if ((unsigned int) addr > DOWN_TO_PAGE(current_process->user_c.sp))
+    if ((unsigned int)addr > DOWN_TO_PAGE(current_process->user_c.sp))
     {
         TracePrintf(1, "attempting to allocate too much!\n");
         return ERROR;
     }
     // return error if addr is too low
-    if((unsigned int) addr < current_process->highest_text_addr){
+    if ((unsigned int)addr < current_process->highest_text_addr)
+    {
         TracePrintf(1, "addr too lowwwwww\n");
         return ERROR;
     }
@@ -430,11 +427,11 @@ int Y_Brk(void *addr)
     int adjusted_addr_page = (UP_TO_PAGE(addr) - VMEM_0_SIZE) / PAGESIZE;
     TracePrintf(1, "Adjusted address page: %d\n", adjusted_addr_page);
 
-    //set bottom of the red zone, which is the highest the brk can possibly be
+    // set bottom of the red zone, which is the highest the brk can possibly be
     int bottom_of_red_zone_page = ((DOWN_TO_PAGE(current_process->user_c.sp)) - PAGESIZE) >> PAGESHIFT;
 
     TracePrintf(1, "bottom of red zone page: %d\n", bottom_of_red_zone_page);
-    
+
     TracePrintf(1, "Is currend addr %p less than brk %p\n", addr, current_process->brk);
     // If addr below brk, free all frames from addr to brk
     if ((unsigned int)addr < current_process->brk)
@@ -449,7 +446,7 @@ int Y_Brk(void *addr)
         TracePrintf(1, "IN BRK: addr is greater than current brk\n");
         TracePrintf(1, "The loop: i starts at %d and goes to %d\n", current_process->brk >> PAGESHIFT, adjusted_addr_page);
         for (int i = current_process->brk >> PAGESHIFT; i < adjusted_addr_page; i++)
-        {   
+        {
             // if we've gone too far and encroach on stack pointer, error
             if (i > bottom_of_red_zone_page)
             {
@@ -498,36 +495,40 @@ int Y_Ttyread(int tty_id, void *buf, int len)
      *
      */
 
-    enqueue(want_to_read_from[tty_id], current_process); 
+    enqueue(want_to_read_from[tty_id], current_process);
 
-
-    Queue_t* input_queue = terminal_input_buffers[tty_id];
+    Queue_t *input_queue = terminal_input_buffers[tty_id];
     int bytes_read = 0;
-    Node_t* curr_node = input_queue->tail->prev;
+    Node_t *curr_node = input_queue->tail->prev;
 
     // while there is no input available or another node is ahead of us in the read queue, we run other process
-    while(curr_node == input_queue->head || ((getSize(want_to_read_from[tty_id]) > 0) && peekTail(want_to_read_from[tty_id])->data != current_process)){
+    while (curr_node == input_queue->head || ((getSize(want_to_read_from[tty_id]) > 0) && peekTail(want_to_read_from[tty_id])->data != current_process))
+    {
         enqueue(ready_queue, current_process);
         runProcess();
         curr_node = input_queue->tail->prev;
     }
 
     // while we can read more bytes or have read all bytes
-    while(bytes_read < len && curr_node != input_queue->head){
-    int curr_len = strlen(curr_node->data);
-    if(curr_len + bytes_read < len){
+    while (bytes_read < len && curr_node != input_queue->head)
+    {
+        int curr_len = strlen(curr_node->data);
+        if (curr_len + bytes_read < len)
+        {
             memcpy(buf, curr_node->data, curr_len);
             free(curr_node->data);
-            bytes_read+= curr_len;
+            bytes_read += curr_len;
             free(dequeue(input_queue));
             curr_node = input_queue->tail->prev;
         }
-        else if (curr_len + bytes_read > len){
+        else if (curr_len + bytes_read > len)
+        {
             memcpy(buf, curr_node->data, len - bytes_read);
             curr_node->data += len - bytes_read;
             bytes_read += len - bytes_read;
         }
-        else{
+        else
+        {
             memcpy(buf, curr_node->data, curr_len);
             free(curr_node->data);
             free(dequeue(input_queue));
@@ -552,30 +553,35 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     enqueue(want_to_write_to[tty_id], current_process);
 
     // allocate space in kernel to store the string, so it doesn't get lost when we switch processes
-    void* kernel_buff = malloc(len);
+    void *kernel_buff = malloc(len);
     memcpy(kernel_buff, buf, len);
 
     // if there's another process in line to write to this terminal, block
-    while(getSize(want_to_write_to[tty_id]) > 0 && peekTail(want_to_write_to[tty_id])->data != current_process){
+    while (getSize(want_to_write_to[tty_id]) > 0 && peekTail(want_to_write_to[tty_id])->data != current_process)
+    {
         enqueue(ready_queue, current_process);
         runProcess();
     }
 
     int bytes_read = 0;
 
-    while(bytes_read < len && peekTail(want_to_write_to[tty_id])->data == current_process){
-        if(can_write_to_terminal[tty_id] == 0){
+    while (bytes_read < len && peekTail(want_to_write_to[tty_id])->data == current_process)
+    {
+        if (can_write_to_terminal[tty_id] == 0)
+        {
             enqueue(ready_queue, current_process);
             runProcess();
             continue;
         }
-        if(bytes_read + TERMINAL_MAX_LINE < len){
+        if (bytes_read + TERMINAL_MAX_LINE < len)
+        {
             TtyTransmit(tty_id, kernel_buff, TERMINAL_MAX_LINE);
             can_write_to_terminal[tty_id] = 0;
             kernel_buff += TERMINAL_MAX_LINE;
             bytes_read += TERMINAL_MAX_LINE;
         }
-        else{
+        else
+        {
             TtyTransmit(tty_id, kernel_buff, len - bytes_read);
             can_write_to_terminal[tty_id] = 0;
             bytes_read = len;
@@ -601,8 +607,8 @@ int Y_Pipeinit(int *pipe_idp)
      */
 
     // get next available pipe
-    Node_t* pipe_holder = dequeue(empty_pipes);
-    int available_pipe_id = *((int*) pipe_holder->data);
+    Node_t *pipe_holder = dequeue(empty_pipes);
+    int available_pipe_id = *((int *)pipe_holder->data);
     free(pipe_holder->data);
     free(pipe_holder);
     memcpy(pipe_idp, &available_pipe_id, sizeof(int));
@@ -622,34 +628,39 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 7.   Return len
      */
     TracePrintf(1, "1 dick\n");
-    Pipe_t* curr_pipe = &(pipes[pipe_id]);
+    Pipe_t *curr_pipe = &(pipes[pipe_id]);
     curr_pipe->reader = current_process;
     TracePrintf(1, "2 dick\n");
-    enqueue(current_process->pipes, curr_pipe); 
+    enqueue(current_process->pipes, curr_pipe);
     TracePrintf(1, "3 dick\n");
-    char* buf_holder = (char*) buf;
-    if(curr_pipe->exists == 0){
+    char *buf_holder = (char *)buf;
+    if (curr_pipe->exists == 0)
+    {
         TracePrintf(1, "WOAH\n");
         return ERROR;
     }
     TracePrintf(1, "4 dick\n");
-    if(len > PIPE_BUFFER_LEN){
+    if (len > PIPE_BUFFER_LEN)
+    {
         TracePrintf(1, "WOAH2\n");
         return ERROR;
     }
     int bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
     TracePrintf(1, "5 dick\n");
     TracePrintf(1, "bytes to read: %d\n", bytes_to_read);
-    Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
+    Queue_t *pipe_reading_queue = want_to_read_pipe[pipe_id];
 
     enqueue(pipe_reading_queue, current_process);
     // wait for bytes to read
-    while(bytes_to_read < 1 || can_interact_with_pipe[pipe_id] == 0 || (getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process )){
+    while (bytes_to_read < 1 || can_interact_with_pipe[pipe_id] == 0 || (getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process))
+    {
         TracePrintf(1, "In loop and bytes to read: %d\n", bytes_to_read);
-        if(getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process){
+        if (getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process)
+        {
             TracePrintf(1, "In loop and decided we aren't first in queue\n");
         }
-        if(can_interact_with_pipe[pipe_id] == 0){
+        if (can_interact_with_pipe[pipe_id] == 0)
+        {
             TracePrintf(1, "We just can't interact with pipe\n");
         }
         runProcess();
@@ -661,8 +672,9 @@ int Y_Piperead(int pipe_id, void *buf, int len)
     int pos = 0;
     // make sure nothing else interacts with our pipe while we do the below
     can_interact_with_pipe[pipe_id] = 0;
-    
-    while(bytes_read < bytes_to_read){
+
+    while (bytes_read < bytes_to_read)
+    {
         TracePrintf(1, "bytes_read: %d\n pos: %d\n current char: %c\n", bytes_read, pos, curr_pipe->buffer[curr_pipe->read_pos]);
         buf_holder[pos] = curr_pipe->buffer[curr_pipe->read_pos];
         bytes_read++;
@@ -670,29 +682,30 @@ int Y_Piperead(int pipe_id, void *buf, int len)
         pos++;
         curr_pipe->num_bytes_in_pipe--;
         // wrap the reading position around if needed
-        if(curr_pipe->read_pos >= PIPE_BUFFER_LEN) curr_pipe->read_pos = 0;
+        if (curr_pipe->read_pos >= PIPE_BUFFER_LEN)
+            curr_pipe->read_pos = 0;
     }
 
     can_interact_with_pipe[pipe_id] = 1;
     dequeue(pipe_reading_queue);
 
     // if more processes want to read or write from the pipe, put them in the ready queue
-    if(getSize(pipe_reading_queue) > 0){
-        Node_t* curr_node = dequeue(pipe_reading_queue);
-        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    if (getSize(pipe_reading_queue) > 0)
+    {
+        Node_t *curr_node = dequeue(pipe_reading_queue);
+        enqueue(ready_queue, (pcb_t *)curr_node->data);
         free(curr_node);
     }
 
-    Queue_t* pipe_writing_queue = want_to_write_pipe[pipe_id];
-    if(getSize(pipe_writing_queue) > 0){
-        Node_t* curr_node = dequeue(pipe_writing_queue);
-        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    Queue_t *pipe_writing_queue = want_to_write_pipe[pipe_id];
+    if (getSize(pipe_writing_queue) > 0)
+    {
+        Node_t *curr_node = dequeue(pipe_writing_queue);
+        enqueue(ready_queue, (pcb_t *)curr_node->data);
         free(curr_node);
     }
-
 
     return bytes_read;
-
 }
 
 int Y_Pipewrite(int pipe_id, void *buf, int len)
@@ -710,36 +723,39 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      *
      */
     TracePrintf(1, "0 fucker\n");
-    Pipe_t* curr_pipe = &(pipes[pipe_id]);
+    Pipe_t *curr_pipe = &(pipes[pipe_id]);
     TracePrintf(1, "1 fucker\n");
     curr_pipe->writer = current_process;
     TracePrintf(1, "2 fucker\n");
     TracePrintf(1, "Size of pipes queue for current process: %d\n", getSize(current_process->pipes));
     enqueue(current_process->pipes, curr_pipe);
     TracePrintf(1, "3 fucker\n");
-    char* buf_str = (char*) buf;
+    char *buf_str = (char *)buf;
 
-    if(curr_pipe->exists == 0){
+    if (curr_pipe->exists == 0)
+    {
         return ERROR;
     }
 
-    if(len > PIPE_BUFFER_LEN){
+    if (len > PIPE_BUFFER_LEN)
+    {
         return ERROR;
     }
 
-    Queue_t* pipe_writing_queue = want_to_write_pipe[pipe_id];
+    Queue_t *pipe_writing_queue = want_to_write_pipe[pipe_id];
 
     enqueue(pipe_writing_queue, current_process);
 
-
-    while((getSize(pipe_writing_queue) > 0 && (peekTail(pipe_writing_queue)->data != current_process)) || can_interact_with_pipe[pipe_id] == 0){
+    while ((getSize(pipe_writing_queue) > 0 && (peekTail(pipe_writing_queue)->data != current_process)) || can_interact_with_pipe[pipe_id] == 0)
+    {
         runProcess();
     }
 
     int pos = 0;
 
     can_interact_with_pipe[pipe_id] = 0;
-    while(pos < len){
+    while (pos < len)
+    {
         TracePrintf(1, "In loop, pos: %d\n", pos);
         TracePrintf(1, "In loop, len: %d\n", len);
         TracePrintf(1, "In loop, writing char: %c\n", buf_str[pos]);
@@ -750,62 +766,78 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         pos++;
         curr_pipe->write_pos++;
         // wrap around as needed
-        if(curr_pipe->write_pos >= PIPE_BUFFER_LEN) curr_pipe->write_pos = 0;
+        if (curr_pipe->write_pos >= PIPE_BUFFER_LEN)
+            curr_pipe->write_pos = 0;
     }
 
     can_interact_with_pipe[pipe_id] = 1;
     free(dequeue(pipe_writing_queue));
 
     // if more processes want to read or write from the pipe, put them in the ready queue
-    if(getSize(pipe_writing_queue) > 0){
-        Node_t* curr_node = dequeue(pipe_writing_queue);
-        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    if (getSize(pipe_writing_queue) > 0)
+    {
+        Node_t *curr_node = dequeue(pipe_writing_queue);
+        enqueue(ready_queue, (pcb_t *)curr_node->data);
         free(curr_node);
     }
 
-    Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
+    Queue_t *pipe_reading_queue = want_to_read_pipe[pipe_id];
 
-    if(getSize(pipe_reading_queue) > 0){
-        Node_t* curr_node = dequeue(pipe_reading_queue);
-        enqueue(ready_queue, (pcb_t*) curr_node->data);
+    if (getSize(pipe_reading_queue) > 0)
+    {
+        Node_t *curr_node = dequeue(pipe_reading_queue);
+        enqueue(ready_queue, (pcb_t *)curr_node->data);
         free(curr_node);
     }
 
     return pos;
-
 }
 
+/**
+ * 1. Check if there is a free lock.
+ * 2. If there is, get the first available lock_id from free locks queue
+ * 3. Copy lock id into lock_idp
+ * 4. Return lock_idp
+ */
 int Y_LockInit(int *lock_idp)
 {
-    /**
-     * 1. Check if lock_idp is valid, if not, ERROR
-     * 2. Get first available lock_id from free lock queue
-     * 3. Malloc lock according to id, initialize waiting queue
-     * 4. Fill kernel lock array with lock (maybe taken care of already by kernel?)
-     * 5. Return 0
-     */
+    Node_t *lock_node = dequeue(empty_locks);
+    if (lock_node == NULL)
+    {
+        return ERROR;
+    }
+    Lock_t *lock = lock_node->data;
+    free(lock_node);
+    memccpy(lock_idp, &lock->lock_id, sizeof(int), sizeof(int));
+    return *lock_idp;
 }
 
+/**
+ * 1. Check if lock_id is valid, if not, ERROR
+ * 2. Acquire lock.
+ * 3. Return
+ */
 int Y_Acquire(int lock_id)
 {
-    /**
-     * 1. Check if lock_id is valid, if not, ERROR
-     * 2. If lock is free, acquire it, mark it as acquired
-     * 3. If lock is held, add caller to waiting queue of that lock
-     * 4. Add pid to kernel waiting queue, switch to next ready process
-     * 5. Return 0
-     */
+    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    {
+        return ERROR;
+    }
+    return acquireLock(&locks[lock_id], current_process);
 }
 
+/**
+ * 1. Check if lock_id is valid, if not, ERROR
+ * 2. Release lock.
+ * 3. Return
+ */
 int Y_Release(int lock_id)
 {
-    /**
-     * 1. Check if lock_id is valid, if not, ERROR
-     * 2. If lock not held by this process, ERROR
-     * 3. If lock is held by this process, release it, add to free queue
-     * 4. unalloc memory
-     * 5. Return 0
-     */
+    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    {
+        return ERROR;
+    }
+    return releaseLock(&locks[lock_id], current_process);
 }
 
 int Y_CvarInit(int *cvar_idp)
@@ -846,6 +878,7 @@ int Y_Cvarwait(int cvar_id, int lock_id)
      * 4. Switch to next ready process, add this process to waiting queue of kernel
      * 5. Reacquire the lock, return 0 and return to userland
      */
+    return SUCCESS;
 }
 
 int Y_Reclaim(int id)
@@ -858,4 +891,134 @@ int Y_Reclaim(int id)
      * 5. Add id to free ____ IDs queue
      * 6. If anythign went wrong, ERROR or return 0 on success
      */
+}
+
+/**
+ * Creates a lock with the given id. Defined as index in arr.
+ */
+Lock_t *createLock(int lock_id)
+{
+    Lock_t *lock = (Lock_t *)malloc(sizeof(Lock_t));
+    if (lock == NULL)
+    {
+        return NULL;
+    }
+    lock->lock_id = lock_id;
+    lock->owner_pcb = NULL;
+    lock->is_locked = 0;
+    lock->waiting_queue = createQueue();
+    return lock;
+}
+
+/**
+ * Acquires the lock. If lock is free, lock just gets acquired, fill owner.
+ * Otherwise, add self to waiting queue and switch context out.
+ */
+int acquireLock(Lock_t *lock, pcb_t *pcb)
+{
+    if (lock->is_locked == 0)
+    {
+        lock->is_locked = 1;
+        lock->owner_pcb = pcb;
+        return SUCCESS;
+    }
+    else
+    {
+        enqueue(lock->waiting_queue, pcb);
+        runProcess();
+        return SUCCESS;
+    }
+}
+
+/**
+ * Releases the lock. If waiting queue, remove one process and move to ready queue, update state.
+ */
+int releaseLock(Lock_t *lock, pcb_t *pcb)
+{
+    if (lock->owner_pcb->pid != pcb->pid)
+    {
+        return ERROR;
+    }
+    if (lock->waiting_queue->size == 0)
+    {
+        lock->is_locked = 0;
+        lock->owner_pcb = NULL;
+        return SUCCESS;
+    }
+    else
+    {
+        Node_t *node = dequeue(lock->waiting_queue);
+        pcb_t *pcb = (pcb_t *)node->data;
+        free(node);
+        enqueue(ready_queue, pcb);
+        return SUCCESS;
+    }
+}
+
+/**
+ * Creates a condition variable with the given id. Defined as MAX_LOCKS + index in arr.
+ */
+Cvar_t *createCvar(int cvar_id)
+{
+    Cvar_t *cvar = (Cvar_t *)malloc(sizeof(Cvar_t));
+    if (cvar == NULL)
+    {
+        return NULL;
+    }
+    cvar->cvar_id = cvar_id;
+    cvar->waiting_queue = createQueue();
+    return cvar;
+}
+
+/**
+ * Waits on condition variable. Adds itself to waiting queue.
+ *   Will release the lock, move one process off the waiting queue
+ *   and then runProcess to the next process in the ready queue. When it wakes in here
+ *   it will try to reacquire the lock. Once it has the lock, it will continue running.
+ *   Also checks if this process owns the lock it is trying to release.
+ */
+int cWait(Cvar_t *cvar, Lock_t *lock, pcb_t *caller, UserContext *user_context)
+{
+    if (lock->owner_pcb->pid != caller->pid)
+    {
+        return ERROR_NOT_OWNER;
+    }
+    releaseLock(lock, lock->owner_pcb);
+    enqueue(cvar->waiting_queue, lock->owner_pcb);
+
+    runProcess();
+
+    acquireLock(lock, lock->owner_pcb);
+    return SUCCESS;
+}
+/**
+ * Signals the condition variable. Removes one process from the waiting queue and moves it to the ready queue.
+ *   Sets state to be ready
+ */
+int cSignal(Cvar_t *cvar, pcb_t *caller)
+{
+    if (cvar->waiting_queue->size == 0)
+    {
+        return SUCCESS;
+    }
+    Node_t *node = dequeue(cvar->waiting_queue);
+    pcb_t *pcb = (pcb_t *)node->data;
+    free(node);
+    enqueue(ready_queue, pcb);
+    return SUCCESS;
+}
+
+/**
+ * Broadcasts the condition variable. Removes all processes from the waiting queue and moves them to the ready queue.
+ */
+int cBroadcast(Cvar_t *cvar, pcb_t *caller)
+{
+    while (cvar->waiting_queue->size > 0)
+    {
+        Node_t *node = dequeue(cvar->waiting_queue);
+        pcb_t *pcb = (pcb_t *)node->data;
+        free(node);
+        enqueue(ready_queue, pcb);
+    }
+    return SUCCESS;
 }

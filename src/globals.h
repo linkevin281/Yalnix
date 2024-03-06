@@ -10,21 +10,27 @@
 #define REDZONE_SIZE 1
 
 /* Exit Codes */
-#define GENERAL_EXCEPTION           -66
-#define EXECPTION_OUT_OF_MEM        -67
-#define ILLEGAL_MEM_ADDR            -131 
-#define ILLEGAL_MEM_STACK_GROWTH    -134
-#define ILLEGAL_INSTRUCTION         -135 // or 4?
-#define FLOATING_POINT_EXCEPTION    -136
+#define GENERAL_EXCEPTION -66
+#define EXECPTION_OUT_OF_MEM -67
+#define ILLEGAL_MEM_ADDR -131
+#define ILLEGAL_MEM_STACK_GROWTH -134
+#define ILLEGAL_INSTRUCTION -135 // or 4?
+#define FLOATING_POINT_EXCEPTION -136
 
+#define ERROR_NOT_OWNER -2
+#define ACQUIRE_SUCCESS 0
+#define ACQUIRE_FAILED -1
+#define RELEASE_SUCCESS 0
+#define RELEASE_FAILED -1
 
 typedef struct pcb pcb_t;
 
-typedef struct pcb {
-    char* name;
+typedef struct pcb
+{
+    char *name;
     int pid;
     pcb_t *parent;
-    int exit_status; // if exited, this contains exit status.
+    int exit_status;   // if exited, this contains exit status.
     int delayed_until; // time this pcb is delayed until
     Queue_t *children;
     Queue_t *zombies;
@@ -36,9 +42,9 @@ typedef struct pcb {
 
     int brk;
     int highest_text_addr;
-    pte_t userland_pt[MAX_PT_LEN]; 
-    pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
-    int is_waiting; //0 if not waiting, 1 if waiting
+    pte_t userland_pt[MAX_PT_LEN];
+    pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE / PAGESIZE];
+    int is_waiting; // 0 if not waiting, 1 if waiting
 } pcb_t;
 
 typedef struct Lock {
@@ -65,27 +71,39 @@ typedef struct Pipe {
     int num_bytes_in_pipe;
 } Pipe_t;
 
-#define MAX_LOCKS 100
-#define MAX_CVARS 100
+#define NUM_LOCKS 100
+#define NUM_CVARS 100
 #define MAX_PIPES 100
+typedef struct Lock
+{
+    int lock_id;
+    pcb_t *owner_pcb;
+    int is_locked;
+    Queue_t *waiting_queue;
+} Lock_t;
+
+typedef struct Cvar
+{
+    int cvar_id;
+    Queue_t *waiting_queue;
+} Cvar_t;
 
 /* Queues to help indicate which resources are available (by index). */
-extern Queue_t* ready_queue;
-extern Queue_t* waiting_queue;
-extern Queue_t* delay_queue; // This will be sorted. 
-extern Queue_t* terminal_waiting_queue; // to store pcbs that are waiting for some I/O operation to complete
-extern Queue_t* empty_locks;
-extern Queue_t* empty_cvars;
-extern Queue_t* empty_pipes;
-extern Queue_t* empty_frames; // to track free frames
+extern Queue_t *ready_queue;
+extern Queue_t *delay_queue;            // This will be sorted.
+extern Queue_t *terminal_waiting_queue; // to store pcbs that are waiting for some I/O operation to complete
+extern Queue_t *empty_locks;
+extern Queue_t *empty_cvars;
+extern Queue_t *empty_pipes;
+extern Queue_t *empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
-extern Queue_t* terminal_input_buffers[NUM_TERMINALS];
-extern Queue_t* terminal_output_buffers[NUM_TERMINALS];
+extern Queue_t *terminal_input_buffers[NUM_TERMINALS];
+extern Queue_t *terminal_output_buffers[NUM_TERMINALS];
 
 // quesues of pcbs attempting to read and write from various terminals
-extern Queue_t* want_to_read_from[NUM_TERMINALS];
-extern Queue_t* want_to_write_to[NUM_TERMINALS];
+extern Queue_t *want_to_read_from[NUM_TERMINALS];
+extern Queue_t *want_to_write_to[NUM_TERMINALS];
 
 extern int can_write_to_terminal[NUM_TERMINALS];
 extern int can_read_from_terminal[NUM_TERMINALS];
@@ -98,12 +116,12 @@ extern Queue_t* want_to_write_pipe[MAX_PIPES];
 extern int can_interact_with_pipe[MAX_PIPES];
 
 extern Pipe_t pipes[MAX_PIPES];
-extern Lock_t locks[MAX_LOCKS];
-extern Cvar_t cvars[MAX_CVARS];
+extern Lock_t locks[NUM_LOCKS];
+extern Cvar_t cvars[NUM_CVARS];
 
 extern pte_t kernel_pt[MAX_PT_LEN];
 
-extern void* interrupt_vector_tbl[TRAP_VECTOR_SIZE];
+extern void *interrupt_vector_tbl[TRAP_VECTOR_SIZE];
 
 extern int kernel_brk;
 

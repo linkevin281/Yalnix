@@ -28,24 +28,24 @@ Queue_t *empty_pipes;
 Queue_t *empty_frames; // to track free frames
 
 // each entry represents a terminal, and stores a linked list of strings with MAX_TERMINAL_LENGTH length each
-Queue_t* terminal_input_buffers[NUM_TERMINALS];
-Queue_t* terminal_output_buffers[NUM_TERMINALS];
+Queue_t *terminal_input_buffers[NUM_TERMINALS];
+Queue_t *terminal_output_buffers[NUM_TERMINALS];
 
 // quesues of pcbs attempting to read and write from various terminals
-Queue_t* want_to_read_from[NUM_TERMINALS];
-Queue_t* want_to_write_to[NUM_TERMINALS];
+Queue_t *want_to_read_from[NUM_TERMINALS];
+Queue_t *want_to_write_to[NUM_TERMINALS];
 
 int can_write_to_terminal[NUM_TERMINALS];
 int can_read_from_terminal[NUM_TERMINALS];
 
-Queue_t* want_to_write_pipe[MAX_PIPES];
-Queue_t* want_to_read_pipe[MAX_PIPES];
+Queue_t *want_to_write_pipe[MAX_PIPES];
+Queue_t *want_to_read_pipe[MAX_PIPES];
 
 int can_interact_with_pipe[MAX_PIPES];
 
 Pipe_t pipes[MAX_PIPES];
-Lock_t locks[MAX_LOCKS];
-Cvar_t cvars[MAX_CVARS];
+Lock_t locks[NUM_LOCKS];
+Cvar_t cvars[NUM_CVARS];
 
 pte_t kernel_pt[MAX_PT_LEN];
 
@@ -189,12 +189,12 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     WriteRegister(REG_VM_ENABLE, 1);
 
     // Initialize queues
-
     ready_queue = createQueue();
     delay_queue = createQueue();
-    waiting_queue = createQueue();
 
-    for (int i = 0; i < NUM_TERMINALS; i++){
+    // Initalize terminal queues
+    for (int i = 0; i < NUM_TERMINALS; i++)
+    {
         can_write_to_terminal[i] = 1;
         can_read_from_terminal[i] = 1;
         want_to_read_from[i] = createQueue();
@@ -207,7 +207,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Set up pipes
     // TODO: potentially optimize this
-    for(int i = 0; i < MAX_PIPES; i++){
+    for (int i = 0; i < MAX_PIPES; i++)
+    {
         pipes[i].id = i;
         pipes[i].read_pos = 0;
         pipes[i].write_pos = 0;
@@ -215,14 +216,35 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         pipes[i].num_bytes_in_pipe = 0;
         pipes[i].reader = NULL;
         pipes[i].writer = NULL;
-        int* to_enqueue = malloc(sizeof(int));
+        int *to_enqueue = malloc(sizeof(int));
         memcpy(to_enqueue, &i, sizeof(int));
         enqueue(empty_pipes, to_enqueue);
-        Queue_t* pq_1 = createQueue();
-        Queue_t* pq_2 = createQueue();
+        Queue_t *pq_1 = createQueue();
+        Queue_t *pq_2 = createQueue();
         want_to_read_pipe[i] = pq_1;
         want_to_write_pipe[i] = pq_2;
         can_interact_with_pipe[i] = 1;
+    }
+    // Initalize locks, cvars, and pipes
+    empty_locks = createQueue();
+    empty_cvars = createQueue();
+    for (int i = 0; i < NUM_LOCKS; i++)
+    {
+        Lock_t *lock = (Lock_t *)malloc(sizeof(Lock_t));
+        lock->lock_id = i;
+        lock->owner_pcb = NULL;
+        lock->is_locked = 0;
+        lock->waiting_queue = createQueue();
+        enqueue(empty_locks, lock);
+        locks[i] = *lock;
+    }
+    for (int i = 0; i < NUM_CVARS; i++)
+    {
+        Cvar_t *cvar = (Cvar_t *)malloc(sizeof(Cvar_t));
+        cvar->cvar_id = i;
+        cvar->waiting_queue = createQueue();
+        enqueue(empty_cvars, cvar);
+        cvars[i] = *cvar;
     }
 
     // Init and Idle Process
@@ -242,7 +264,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
-    
+
     enqueue(ready_queue, init_process);
 
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
@@ -306,7 +328,7 @@ KernelContext *KCSwitch(KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-    
+
     // Return the next process's kernel context
     return &(next_pcb->kernel_c);
 }
@@ -370,9 +392,9 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 int allocateFrame()
 {
     if (getSize(empty_frames) > 0)
-    {   
-        Node_t* to_return = dequeue(empty_frames)->data;
-        int ret = *(int *) to_return;
+    {
+        Node_t *to_return = dequeue(empty_frames)->data;
+        int ret = *(int *)to_return;
         free(to_return->data);
         free(to_return);
         return ret;
@@ -393,7 +415,7 @@ int deallocateFrame(int frame_index)
      * Add a node with frame_index to empty_frames
      * NOTE: user is responsible for flushing TLB after calling!
      */
-    int* allocated_int = (int*) malloc(sizeof(int));
+    int *allocated_int = (int *)malloc(sizeof(int));
     *allocated_int = frame_index;
     if (enqueue(empty_frames, allocated_int) == -1)
     {
@@ -418,17 +440,19 @@ int runProcess()
      */
     TracePrintf(1, "FUNCTION CALL: runProcess\n");
     pcb_t *next;
-    
+
     // 2. Handle putting the current process on the correct queue.
     TracePrintf(1, "Current Process; Name: %s { %d }\n", current_process->name, current_process->pid);
 
     // switch into next process on ready queue or idle process
-    if(isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)){
+    if (isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process))
+    {
         next = idle_process;
     }
-    else{
-        Node_t* pcb_node = dequeue(ready_queue);
-        pcb_t* curr = (pcb_t*) pcb_node->data;
+    else
+    {
+        Node_t *pcb_node = dequeue(ready_queue);
+        pcb_t *curr = (pcb_t *)pcb_node->data;
         free(pcb_node);
         next = curr;
     }
@@ -598,7 +622,7 @@ pcb_t *initProcess(UserContext *uctxt, char *args[], char *name)
 /**
  * Create a new PCB. This function will also initalize the PCB's kernel stack and region 1 page table.
  */
-pcb_t *createPCB(char* name)
+pcb_t *createPCB(char *name)
 {
     TracePrintf(1, "FUNCTION CALL: createPCB\n");
     pcb_t *pcb = malloc(sizeof(pcb_t));
@@ -645,7 +669,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
     /*
      * Open the executable file
      */
-    
+
     TracePrintf(1, "LoadProgram: opening file '%s'\n", name);
     if ((fd = open(name, O_RDONLY)) < 0)
     {
@@ -677,7 +701,6 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
 
     // set the highest text address of the process, so we can ensure brk doesn't run into it later
     proc->highest_text_addr = (text_pg1 + li.t_npg) << PAGESHIFT;
-
 
     /*
      *  Figure out how many bytes are needed to hold the arguments on
@@ -813,7 +836,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
      * ==>> These pages should be marked valid, with a protection of
      * ==>> (PROT_READ | PROT_WRITE).
      */
-    
+
     // set brk for the process
     proc->brk = (data_pg1 + data_npg) << PAGESHIFT;
     for (int i = data_pg1; i < data_pg1 + data_npg; i++)
@@ -835,7 +858,7 @@ int LoadProgram(char *name, char *args[], pcb_t *proc)
      * ==>> These pages should be marked valid, with a protection of
      * ==>> (PROT_READ | PROT_WRITE).
      */
-    
+
     for (int i = text_pg1; i < text_pg1 + li.t_npg; i++)
     {
         int frame = allocateFrame();
@@ -950,7 +973,6 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
         return -1;
     }
     Node_t *node = createNode(pcb);
-
 
     Node_t *curr = peekTail(queue);
     while (curr->data != NULL && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)

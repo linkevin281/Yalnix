@@ -19,26 +19,12 @@
 
 typedef struct pcb pcb_t;
 
-typedef enum State {
-    RUNNING        = 0,
-    READY          = 1,
-    LOCK_BLOCKED   = 2,
-    CVAR_BLOCKED   = 3,
-    PIPE_BLOCKED   = 4,
-    DELAYED        = 5,
-    DEAD           = 6,
-    WAITING        = 7,
-    WRITING        = 8,
-    READING        = 9
-} State_t;
-
 typedef struct pcb {
     char* name;
     int pid;
     pcb_t *parent;
     int exit_status; // if exited, this contains exit status.
     int delayed_until; // time this pcb is delayed until
-    State_t state;
     Queue_t *children;
     Queue_t *zombies;
     Queue_t * waiters; //to store pointers to pcbs of processes waiting on this one
@@ -50,6 +36,7 @@ typedef struct pcb {
     int highest_text_addr;
     pte_t userland_pt[MAX_PT_LEN]; 
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE/PAGESIZE];
+    int is_waiting; //0 if not waiting, 1 if waiting
 } pcb_t;
 
 typedef struct Lock {

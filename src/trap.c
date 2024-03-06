@@ -9,34 +9,8 @@
 
 #include <hardware.h>
 #include <yalnix.h>
+#include "syscalls.h"
 #include "kernel.h"
-/* Creates a new process that is a copy of the calling process. */
-int Y_Fork(void);
-/* Replaces the currently running process with a new process image. */
-int Y_Exec(char *filename, char *argv[]);
-/* Terminates the calling process with exit code {status} */
-int Y_Exit(int status);
-/* Waits for a child process to terminate, returns the child's PID and stores status at ptr. */
-int Y_Wait(int *status);
-/* Returns the PID of the calling process. */
-int Y_Getpid(void);
-/* Changes the location of the program break. */
-int Y_Brk(void *addr);
-/* Delays the calling process for a specified number of clock ticks. */
-int Y_Delay(int clock_ticks);
-int Y_Ttyread(int tty_id, void *buf, int len);
-int Y_Ttywrite(int tty_id, void *buf, int len);
-int Y_Pipeinit(int *pipe_idp);
-int Y_Piperead(int pipe_id, void *buf, int len);
-int Y_Pipewrite(int pipe_id, void *buf, int len);
-int Y_LockInit(int *lock_idp);
-int Y_Acquire(int lock_id);
-int Y_Release(int lock_id);
-int Y_CvarInit(int *cvar_idp);
-int Y_CvarSignal(int cvar_id);
-int Y_CvarBroadcast(int cvar_id);
-int Y_Cvarwait(int cvar_id, int lock_id);
-int Y_Reclaim(int id);
 
 void TrapKernel(UserContext *user_context)
 {
@@ -122,10 +96,24 @@ void TrapClock(UserContext *user_context)
 {
     TracePrintf(1, "TRAPPPPP: Clock Trap.\n");
     clock_ticks++;
+    // put delayed processes on ready queue
+    if (getSize(delay_queue) > 0)
+    {
+        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
+        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
+        {
+            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
+            Node_t *delayed_node = dequeue(delay_queue);
+            enqueue(ready_queue, delayed_node->data);
+            delayed = (pcb_t *)(peekTail(delay_queue)->data);
+        }
+    }
+    // if we have a process other than idle to run, run it
     memcpy(&current_process->user_c, user_context, sizeof(UserContext));
+    // only put current process on ready queue if it isn't idle
+    if(current_process != idle_process) enqueue(ready_queue, current_process);
     runProcess();
     memcpy(user_context, &current_process->user_c, sizeof(UserContext));
-    current_process->state = RUNNING;
 }
 
 /**
@@ -271,10 +259,12 @@ void TrapTTYTransmit(UserContext *user_context)
      * Set can_transmit_to_terminal to true for the relevant terminal
      */
 
+    TracePrintf(1, "In trapttytransmit!!!\n");
+
     int terminal_num = user_context->code;
-
+    TracePrintf(1, "TG: in terminal %d\n", terminal_num);
     can_write_to_terminal[terminal_num] = 1;
-
+    TracePrintf(1, "TG: can write to term now\n");
 
 }
 

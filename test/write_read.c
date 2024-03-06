@@ -4,6 +4,9 @@
 void main(void)
 {
 
+     TtyWrite(0, "hi\n", 4);
+
+
 
     // Writing a line of more than max length
     char* longer_than_max = malloc(TERMINAL_MAX_LINE + 10);
@@ -24,8 +27,8 @@ void main(void)
     // take some input and print result
     char* prompt = "Give me input:";
     TtyWrite(0, prompt, strlen(prompt) + 1);
-    char* buf = malloc(TERMINAL_MAX_LINE);
-    TtyRead(0, buf, TERMINAL_MAX_LINE);
+    char* buf = malloc(TERMINAL_MAX_LINE - 1);
+    TtyRead(0, buf, TERMINAL_MAX_LINE - 1);
     TracePrintf(1, "TGT past reading!\n");
     TracePrintf(1, "given that, buf is now: %s", buf);
     char* give_to_user = "I just read your input as:\n";
@@ -72,14 +75,16 @@ void main(void)
 
     if(pid == 0){
         len = TtyRead(0, buf_5, TERMINAL_MAX_LINE);
-        TracePrintf(1, "I am the child and I read in %s with output %d\n", buf_5, len);
+        char* info_str = "I am the child and I read in: ";
+        TtyWrite(0, info_str, strlen(info_str) + 1);
+        TtyWrite(0, buf_5, len);
+        Exit(0);
     }
     else{
-        Delay(5);
-        TracePrintf(1, "I am the parent and I am awake now...\n");
-        // we shouldn't get here...
-        len = TtyRead(0, buf_5, TERMINAL_MAX_LINE);
-        TracePrintf(1, "I am the parent and I read in %s with output %d\n", buf_5, len);
+        Delay(15);
+        char* final_text = "Parent exiting!\n";
+        TtyWrite(0, final_text, strlen(final_text) + 1);
+        Exit(0);
     }
 
 

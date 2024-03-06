@@ -19,6 +19,7 @@ int main() {
 
     else{
         for(int i = 0; i < 4; i++){
+            TracePrintf(1, "yo I'm the parent and pausing\n");
             Pause();
         }
         TracePrintf(1, "I am the parent, and will now wait for the child...\n");

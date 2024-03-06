@@ -145,11 +145,10 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     // Initialize trap vectors
     interrupt_vector_tbl[TRAP_KERNEL] = TrapKernel;
-    // interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
     interrupt_vector_tbl[TRAP_CLOCK] = TrapClock;
-    // interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
-    // interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
-    // interrupt_vector_tbl[TRAP_MATH] = TrapMath;
+    interrupt_vector_tbl[TRAP_ILLEGAL] = TrapIllegal;
+    interrupt_vector_tbl[TRAP_MEMORY] = TrapMemory;
+    interrupt_vector_tbl[TRAP_MATH] = TrapMath;
     interrupt_vector_tbl[TRAP_TTY_RECEIVE] = TrapTTYReceive;
     interrupt_vector_tbl[TRAP_TTY_TRANSMIT] = TrapTTYTransmit;
     // interrupt_vector_tbl[TRAP_DISK] = TrapDisk;
@@ -232,7 +231,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
 
     WriteRegister(REG_PTBR1, (unsigned int)current_process->userland_pt);
     WriteRegister(REG_PTLR1, MAX_PT_LEN);
-
+    
     enqueue(ready_queue, init_process);
 
     TracePrintf(1, "PIDS of idle and init: %d, %d\n", idle_process->pid, init_process->pid);
@@ -404,76 +403,12 @@ int runProcess()
      */
     TracePrintf(1, "FUNCTION CALL: runProcess\n");
     pcb_t *next;
-    // 1. Handle putting any delayed processes on the ready queue
-    if (getSize(delay_queue) > 0)
-    {
-        pcb_t *delayed = (pcb_t *)peekTail(delay_queue)->data;
-        while (delayed != NULL && delayed->delayed_until <= clock_ticks)
-        {
-            TracePrintf(1, "Moving delayed process %s { %d } from delay queue to ready queue\n", delayed->name, delayed->pid);
-            Node_t *delayed_node = dequeue(delay_queue);
-            delayed->state = READY;
-            enqueue(ready_queue, delayed_node->data);
-            delayed = (pcb_t *)peekTail(delay_queue)->data;
-        }
-    }
     
     // 2. Handle putting the current process on the correct queue.
-    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d\n", current_process->name, current_process->pid, current_process->state);
-    switch (current_process->state)
-    {
-    case RUNNING:
-        TracePrintf(1, "Placed Current Process { %s } on the ready queue because it was in state { %d }\n", current_process->name, current_process->state);
-        current_process->state = READY;
-        enqueue(ready_queue, current_process);
-        break;
-    case READY:
-        TracePrintf(1, "Placed Current Process { %s } on the ready queue because it was in state { %d }\n", current_process->name, current_process->state);
-        enqueue(ready_queue, current_process);
-        break;
-    case WAITING:
-        TracePrintf(1, "reached waiting case in runProcess!\n");
-        enqueue(waiting_queue, current_process);
-    case LOCK_BLOCKED:
-        break;
-    case CVAR_BLOCKED:
-        break;
-    case PIPE_BLOCKED:
-        break;
-    case DELAYED:
-        TracePrintf(1, "Placed Current Process { %s } on the delay queue because it was in state { %d }\n", current_process->name, current_process->state);
-        enqueueDelayQueue(delay_queue, current_process);
-        break;
-    case DEAD:
-        TracePrintf(1, "IN DEAD STATE!!!\n");
-        if(current_process->parent != NULL){
-            if(current_process->parent->state == WAITING){
-                TracePrintf(1, "SEARCH for parent!\n");
-                // traverse waiting queue to remove the node
-                Node_t* prev = waiting_queue->head;
-                Node_t* curr = waiting_queue->head->next;
-                while(curr !=  waiting_queue->tail){
-                    if(curr->data == current_process->parent){
-                        prev->next = curr->next;
-                        break;
-                    }
-                    prev = curr;
-                    curr = curr->next;
-                }
-                current_process->parent->state = READY;
-                TracePrintf(1, "TARGET2: \n");
-                enqueue(ready_queue, current_process->parent);
-            }
-        }
-        // enqueue(current_process->parent->zombies, current_process); // This line is going to break because our init and idle process hvae no parent.
-        break;
-    default:
-        TracePrintf(1, "BAD STATE, NOT PREPARED: current process is in state %d\n", current_process->state);
-        break;
-    }
+    TracePrintf(1, "Current Process; Name: %s { %d }\n", current_process->name, current_process->pid);
 
-    // 3. Grab the next process off the ready queue
-    next = (pcb_t *)dequeue(ready_queue)->data;
+    // switch into next process on ready queue or idle process
+    next = (isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
 
     TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
 
@@ -483,7 +418,8 @@ int runProcess()
         return ERROR;
     }
     TracePrintf(1, "Back from KernelContextSwitch\n");
-    TracePrintf(1, "Current Process; Name: %s { %d }; State: %d; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->state, current_process->user_c.pc, current_process->user_c.sp);
+    TracePrintf(1, "Current Process; Name: %s { %d }; PC SP: %p %p\n", current_process->name, current_process->pid, current_process->user_c.pc, current_process->user_c.sp);
+    return 0;
 }
 
 int SetKernelBrk(void *addr)
@@ -589,7 +525,6 @@ pcb_t *initIdleProcess(UserContext *uctxt, char *args[], char *name)
     }
 
     LoadProgram(name, args, idle_process);
-    idle_process->state = RUNNING; // The idle process is FIRST RUNNING
 
     TracePrintf(1, "FUNCTION RETURN: initIdleProcess\n");
     return idle_process;
@@ -648,11 +583,11 @@ pcb_t *createPCB(char* name)
     strncpy(pcb->name, name, 255);
     pcb->pid = helper_new_pid(pcb->userland_pt);
     pcb->exit_status = 0;
-    pcb->state = READY;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
     pcb->waiters = createQueue();
     pcb->brk = 0;
+    pcb->is_waiting = 0;
 
     TracePrintf(1, "FUNCTION RETURN: createPCB\n");
     return pcb;
@@ -992,8 +927,9 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     }
     Node_t *node = createNode(pcb);
 
+
     Node_t *curr = peekTail(queue);
-    while (curr->data != NULL && ((pcb_t *)curr->data)->delayed_until > pcb->delayed_until)
+    while (curr->data != NULL && ((pcb_t *)curr->data)->delayed_until < pcb->delayed_until)
     {
         curr = curr->prev;
     }

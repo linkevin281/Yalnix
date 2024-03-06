@@ -11,7 +11,7 @@ void main(void)
 
     if(pid == 0){
         TracePrintf(1, "I am the child and I will pause for a bit...\n");
-        Delay(10);
+        Delay(12);
         TracePrintf(1, "I am the child, and I'm now trying to read from the pipe...\n");
         int len = 100;
         void* buf = malloc(len);

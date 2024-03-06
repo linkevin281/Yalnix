@@ -556,7 +556,7 @@ int Y_Pipeinit(int *pipe_idp)
     // get next available pipe
     int available_pipe_id = *((int*) dequeue(empty_pipes)->data);
     memcpy(pipe_idp, &available_pipe_id, sizeof(int));
-    pipes[available_pipe_id].in_use = 1;
+    pipes[available_pipe_id].exists = 1;
     return available_pipe_id;
 
 }
@@ -572,12 +572,11 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 6.   Increment read_pos by len
      * 7.   Return len
      */
-
     Pipe_t curr_pipe = pipes[pipe_id];
 
     char* buf_holder = (char*) buf;
 
-    if(curr_pipe.in_use == 0){
+    if(curr_pipe.exists == 0){
         return ERROR;
     }
 
@@ -587,14 +586,20 @@ int Y_Piperead(int pipe_id, void *buf, int len)
 
     int bytes_to_read = len > curr_pipe.num_bytes_in_pipe ? curr_pipe.num_bytes_in_pipe : len;
 
+    Queue_t* pipe_reading_queue = pipe_read_queues[pipe_id];
+
+    enqueue(pipe_reading_queue, current_process);
+
     // wait for bytes to read
-    while(bytes_to_read < 1){
-        // TODO: enqueue on queue waiting for the pipe
+    while(bytes_to_read < 1 || peekTail(pipe_reading_queue)->data != current_process || can_interact_with_pipe[pipe_id] == 0){
         runProcess();
     }
 
     int bytes_read = 0;
     int pos = 0;
+
+    // make sure nothing else interacts with our pipe while we do the below
+    can_interact_with_pipe[pipe_id] = 0;
 
     while(bytes_read < bytes_to_read){
         buf_holder[pos] = curr_pipe.buffer[curr_pipe.read_pos];
@@ -605,6 +610,9 @@ int Y_Piperead(int pipe_id, void *buf, int len)
     }
 
     curr_pipe.num_bytes_in_pipe -= bytes_read;
+
+    can_interact_with_pipe[pipe_id] = 1;
+    dequeue(pipe_reading_queue);
 
     return bytes_read;
 
@@ -629,7 +637,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
 
     char* buf_str = (char*) buf;
 
-    if(curr_pipe.in_use == 0){
+    if(curr_pipe.exists == 0){
         return ERROR;
     }
 
@@ -637,7 +645,18 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         return ERROR;
     }
 
+    Queue_t* pipe_writing_queue = pipe_write_queues[pipe_id];
+
+    enqueue(pipe_writing_queue, current_process);
+
+
+    while(peekTail(pipe_writing_queue)->data != current_process || can_interact_with_pipe[pipe_id] == 0){
+        runProcess();
+    }
+
     int pos = 0;
+
+    can_interact_with_pipe[pipe_id] = 0;
 
     while(pos < len){
         curr_pipe.buffer[curr_pipe.write_pos] = buf_str[pos];
@@ -645,6 +664,9 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         // wrap around as needed
         if(curr_pipe.write_pos >= PIPE_BUFFER_LEN) curr_pipe.write_pos = 0;
     }
+
+    can_interact_with_pipe[pipe_id] = 1;
+    dequeue(pipe_writing_queue);
 
     return pos;
 

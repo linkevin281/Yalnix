@@ -60,7 +60,7 @@ typedef struct Pipe {
     int write_pos;
     char buffer[PIPE_BUFFER_LEN]; 
     Queue_t *readers;
-    int in_use;
+    int exists;
     int num_bytes_in_pipe;
 } Pipe_t;
 
@@ -86,12 +86,15 @@ extern Queue_t* terminal_output_buffers[NUM_TERMINALS];
 extern Queue_t* want_to_read_from[NUM_TERMINALS];
 extern Queue_t* want_to_write_to[NUM_TERMINALS];
 
-// quesues of pcbs attempting to read and write from various terminals
-extern Queue_t* want_to_read_from[NUM_TERMINALS];
-extern Queue_t* want_to_write_to[NUM_TERMINALS];
-
 extern int can_write_to_terminal[NUM_TERMINALS];
 extern int can_read_from_terminal[NUM_TERMINALS];
+
+// queues of processes waiting to read or write from pipes
+extern Queue_t* pipe_write_queues[MAX_PIPES];
+extern Queue_t* pipe_read_queues[MAX_PIPES];
+
+// 0 if we can't read or write to pipe at the moment, 1 otherwise
+extern int can_interact_with_pipe[MAX_PIPES];
 
 extern Pipe_t pipes[MAX_PIPES];
 extern Lock_t locks[MAX_LOCKS];

@@ -39,6 +39,11 @@ Queue_t* want_to_write_to[NUM_TERMINALS];
 int can_write_to_terminal[NUM_TERMINALS];
 int can_read_from_terminal[NUM_TERMINALS];
 
+Queue_t* pipe_write_queues[MAX_PIPES];
+Queue_t* pipe_read_queues[MAX_PIPES];
+
+int can_interact_with_pipe[MAX_PIPES];
+
 Pipe_t pipes[MAX_PIPES];
 Lock_t locks[MAX_LOCKS];
 Cvar_t cvars[MAX_CVARS];
@@ -207,11 +212,16 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         pipes[i].id = i;
         pipes[i].read_pos = 0;
         pipes[i].write_pos = 0;
-        pipes[i].in_use = 0;
+        pipes[i].exists = 0;
         pipes[i].num_bytes_in_pipe = 0;
         int* to_enqueue = malloc(sizeof(int));
         memcpy(to_enqueue, &i, sizeof(int));
         enqueue(empty_pipes, to_enqueue);
+        Queue_t* pq_1 = createQueue();
+        Queue_t* pq_2 = createQueue();
+        pipe_read_queues[i] = pq_1;
+        pipe_write_queues[i] = pq_2;
+        can_interact_with_pipe[i] = 1;
     }
 
     // Init and Idle Process

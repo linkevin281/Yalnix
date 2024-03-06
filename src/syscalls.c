@@ -934,7 +934,9 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
     {
         lock->is_locked = 1;
         lock->owner_pcb = pcb;
-        enqueue(pcb->owned_locks, lock->lock_id);
+        int *lock_id = malloc(sizeof(int));
+        memcpy(lock_id, &lock->lock_id, sizeof(int));   
+        enqueue(pcb->owned_locks, lock_id);
         return SUCCESS;
     }
     else if (lock->owner_pcb->pid == pcb->pid)
@@ -972,7 +974,11 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
         TracePrintf(1, "No waiting\n");
         lock->is_locked = 0;
         lock->owner_pcb = NULL;
-        removeFrameNode(pcb->owned_locks, lock->lock_id);
+        int remove = removeFrameNode(pcb->owned_locks, lock->lock_id);
+        if (remove == ERROR)
+        {
+            return ERROR;
+        }
         return SUCCESS;
     }
     else

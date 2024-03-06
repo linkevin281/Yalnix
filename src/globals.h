@@ -44,7 +44,8 @@ typedef struct pcb
     int highest_text_addr;
     pte_t userland_pt[MAX_PT_LEN];
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE / PAGESIZE];
-    int is_waiting; // 0 if not waiting, 1 if waiting
+    int is_alive; // 0 if dead, 1 if alive
+    Queue_t *owned_locks;
 } pcb_t;
 
 typedef struct Lock {
@@ -79,17 +80,18 @@ typedef struct Lock
     int lock_id;
     pcb_t *owner_pcb;
     int is_locked;
-    Queue_t *waiting_queue;
+    Queue_t *waiting;
 } Lock_t;
 
 typedef struct Cvar
 {
     int cvar_id;
-    Queue_t *waiting_queue;
+    Queue_t *waiting;
 } Cvar_t;
 
 /* Queues to help indicate which resources are available (by index). */
 extern Queue_t *ready_queue;
+extern Queue_t *waiting_queue;
 extern Queue_t *delay_queue;            // This will be sorted.
 extern Queue_t *terminal_waiting_queue; // to store pcbs that are waiting for some I/O operation to complete
 extern Queue_t *empty_locks;

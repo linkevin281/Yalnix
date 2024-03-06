@@ -589,6 +589,7 @@ int Y_Piperead(int pipe_id, void *buf, int len)
 
     // wait for bytes to read
     while(bytes_to_read < 1){
+        // TODO: enqueue on queue waiting for the pipe
         runProcess();
     }
 
@@ -645,7 +646,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         if(curr_pipe.write_pos >= PIPE_BUFFER_LEN) curr_pipe.write_pos = 0;
     }
 
-    return pos + 1;
+    return pos;
 
 }
 

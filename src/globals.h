@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <hardware.h>
+#include <yalnix.h>
 #include "../lib/queue.h"
 
 #define MAX_ARGS 50

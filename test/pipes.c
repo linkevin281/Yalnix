@@ -136,17 +136,40 @@ void main(void)
         TracePrintf(1, "fuck num bytes written by child 2: %d", len);
         Exit(0);
         }
-        else{
         TracePrintf(1, "I am the parent and I am about to read from the pipe wahoo...\n");
         char* parent_reader = malloc(30);
         PipeRead(*pipe_holder, parent_reader, 30);
         TracePrintf(1, "I am the parent, and after simultaneous writes from my children, I read: %s\n", parent_reader);
-        Exit(0);
-        }
 
 
 
     // multiple processes attempting to read from same pipe
+    pipe_holder = (int*) malloc(sizeof(int));
+    temp = PipeInit(pipe_holder);
 
+
+    pid = Fork();
+
+    if(pid == 0){
+        Delay(4);
+        char buf [5];
+        TracePrintf(1, "Child 1 gonna try to read from pipe..\n");
+        int len = PipeRead(*pipe_holder, buf, 5);
+        TracePrintf(1, "In simultaneous read, got: %s", buf);
+        Exit(0);
+    }
+        pid_2 = Fork();
+        if(pid_2 == 0){
+        Delay(4);
+        char buf [5];
+        TracePrintf(1, "Child 2 gonna try to read from pipe..\n");
+        int len = PipeRead(*pipe_holder, buf, 5);
+        TracePrintf(1, "In simultaneous read, got: %s", buf);
+        Exit(0);
+        }
+        TracePrintf(1, "I am the parent and I am about to read from the pipe wahoo...\n");
+        char* parent_str_yay = "doge";
+        PipeWrite(*pipe_holder, parent_str_yay, strlen(parent_str_yay) + 1);
+        TracePrintf(1, "I am the parent, and just wrote to the pipe so my children can try reading...\n");
     
 }

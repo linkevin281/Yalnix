@@ -587,33 +587,34 @@ int Y_Piperead(int pipe_id, void *buf, int len)
 
     enqueue(pipe_reading_queue, current_process);
     // wait for bytes to read
-    while(bytes_to_read < 1 || peekTail(pipe_reading_queue)->data != current_process || can_interact_with_pipe[pipe_id] == 0){
+    while(bytes_to_read < 1 || can_interact_with_pipe[pipe_id] == 0 || (getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process )){
         TracePrintf(1, "In loop and bytes to read: %d\n", bytes_to_read);
-        if(peekTail(pipe_reading_queue)->data != current_process){
+        if(getSize(pipe_reading_queue) > 0 && peekTail(pipe_reading_queue)->data != current_process){
             TracePrintf(1, "In loop and decided we aren't first in queue\n");
         }
         if(can_interact_with_pipe[pipe_id] == 0){
             TracePrintf(1, "We just can't interact with pipe\n");
         }
         runProcess();
+        TracePrintf(1, "shit yuh\n");
+        bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
     }
 
     int bytes_read = 0;
     int pos = 0;
     // make sure nothing else interacts with our pipe while we do the below
     can_interact_with_pipe[pipe_id] = 0;
-
+    
     while(bytes_read < bytes_to_read){
         TracePrintf(1, "bytes_read: %d\n pos: %d\n current char: %c\n", bytes_read, pos, curr_pipe->buffer[curr_pipe->read_pos]);
         buf_holder[pos] = curr_pipe->buffer[curr_pipe->read_pos];
         bytes_read++;
         curr_pipe->read_pos++;
         pos++;
+        curr_pipe->num_bytes_in_pipe--;
         // wrap the reading position around if needed
         if(curr_pipe->read_pos >= PIPE_BUFFER_LEN) curr_pipe->read_pos = 0;
     }
-
-    curr_pipe->num_bytes_in_pipe -= bytes_read;
 
     can_interact_with_pipe[pipe_id] = 1;
     dequeue(pipe_reading_queue);
@@ -666,7 +667,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
     enqueue(pipe_writing_queue, current_process);
 
 
-    while(peekTail(pipe_writing_queue)->data != current_process || can_interact_with_pipe[pipe_id] == 0){
+    while((getSize(pipe_writing_queue) > 0 && (peekTail(pipe_writing_queue)->data != current_process)) || can_interact_with_pipe[pipe_id] == 0){
         runProcess();
     }
 

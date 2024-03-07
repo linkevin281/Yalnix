@@ -17,12 +17,6 @@
 #define ILLEGAL_INSTRUCTION -135 // or 4?
 #define FLOATING_POINT_EXCEPTION -136
 
-#define ERROR_NOT_OWNER -2
-#define ACQUIRE_SUCCESS 0
-#define ACQUIRE_FAILED -1
-#define RELEASE_SUCCESS 0
-#define RELEASE_FAILED -1
-
 typedef struct pcb pcb_t;
 
 typedef struct pcb

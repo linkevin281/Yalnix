@@ -235,6 +235,7 @@ int Y_Exit(int status)
 
     TracePrintf(1, "SYSCALL: Y_Exit\n");
 
+    TracePrintf(1, "In exit, my pid is %d, my name is %s\n", current_process->pid, current_process->name);
     current_process->is_alive = 0;
 
     // Free all initalized locks and releaseLock removes them if they are held.
@@ -874,45 +875,75 @@ int Y_Release(int lock_id)
     return releaseLock(&locks[lock_id], current_process);
 }
 
+/**
+ * 1. Check if there is a free cvar.
+ * 2. If there is, get the first available cvar_id from free cvars queue
+ * 3. Copy cvar id into cvar_idp
+ * 4. Return cvar_idp
+ */
 int Y_CvarInit(int *cvar_idp)
 {
-    /**
-     * 1. Check if cvar_idp is valid, if not, ERROR
-     * 2. Get first available cvar_id from free cvar queue
-     * 3. Malloc cvar according to id, initialize waiting queue
-     * 4. Fill kernel cvar array with cvar (maybe taken care of already)
-     * 5. Return 0
-     */
+    TracePrintf(1, "SYSCALL: Y_CvarInit\n");
+    Node_t *cvar_node = dequeue(empty_cvars);
+    if (cvar_node == NULL)
+    {
+        return ERROR;
+    }
+    Cvar_t *cvar = cvar_node->data;
+    free(cvar_node);
+    memccpy(cvar_idp, &cvar->cvar_id, sizeof(int), sizeof(int));
+    return *cvar_idp;
 }
 
+/**
+ * 1. Check if cvar_id is valid, if not, ERROR
+ * 2. Release one process from the waiting queue of the cvar
+ * 3. Return 0
+ */
 int Y_CvarSignal(int cvar_id)
 {
-    /**
-     * 1. Check if cvar_id is valid, if not, ERROR
-     * 2. Move one process from waiting queue of cvar to ready queue of kernel
-     * 3. Return 0
-     */
+    TracePrintf(1, "SYSCALL: Y_CvarSignal\n");
+    if (cvar_id >= NUM_CVARS || cvar_id < 0)
+    {
+        return ERROR;
+    }
+    return cSignal(&cvars[cvar_id], current_process);
 }
 
+/**
+ * 1. Check if cvar_id is valid, if not, ERROR
+ * 2. Release all processes from the waiting queue of the cvar
+ * 3. Return 0
+ */
 int Y_CvarBroadcast(int cvar_id)
 {
-    /**
-     * 1. Check if cvar_id is valid, if not, ERROR
-     * 2. Move all processes from waiting queue of cvar to ready queue of kernel
-     * 3. Return 0
-     */
+    TracePrintf(1, "SYSCALL: Y_CvarBroadcast\n");
+    if (cvar_id >= NUM_CVARS || cvar_id < 0)
+    {
+        return ERROR;
+    }
+    return cBroadcast(&cvars[cvar_id], current_process);
 }
 
-int Y_Cvarwait(int cvar_id, int lock_id)
+/**
+ * 1. Check if lock_id, cvar_id is valid, if not, ERROR
+ * 2. Try to release the lock, if it fails, ERROR, add to free queue if it succeeds
+ * 3. Add this PID to the waiting queue of the cvar
+ * 4. Switch to next ready process, add this process to waiting queue of kernel
+ * 5. When woken try to acquire the lock again, return if successful
+ */
+int Y_CvarWait(int cvar_id, int lock_id)
 {
-    /**
-     * 1. Check if lock_id, cvar_id is valid, if not, ERROR
-     * 2. Try to release the lock, if it fails, ERROR, add to free queue if it succeeds
-     * 3. Add this PID to the waiting queue of the cvar
-     * 4. Switch to next ready process, add this process to waiting queue of kernel
-     * 5. Reacquire the lock, return 0 and return to userland
-     */
-    return SUCCESS;
+    TracePrintf(1, "SYSCALL: Y_Cvarwait\n");
+    if (cvar_id >= NUM_CVARS || cvar_id < 0)
+    {
+        return ERROR;
+    }
+    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    {
+        return ERROR;
+    }
+    return cWait(&cvars[cvar_id], &locks[lock_id], current_process, &current_process->user_c);
 }
 
 int Y_Reclaim(int id)
@@ -929,6 +960,8 @@ int Y_Reclaim(int id)
 
 int Y_Custom0(void)
 {
+    TracePrintf(1, "SYSCALL: Y_Custom0\n");
+    peekMultiPCB(ready_queue, 10);
     return 0;
 }
 
@@ -969,7 +1002,7 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
     else if (lock->owner_pcb->pid == pcb->pid)
     {
         TracePrintf(1, "Process already owns lock\n");
-        return ERROR;
+        return SUCCESS;
     }
     else
     {
@@ -1030,7 +1063,7 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
 }
 
 /**
- * Creates a condition variable with the given id. Defined as MAX_LOCKS + index in arr.
+ * Creates a condition variable with the given id. Defined as index in arr.
  */
 Cvar_t *createCvar(int cvar_id)
 {
@@ -1055,14 +1088,22 @@ int cWait(Cvar_t *cvar, Lock_t *lock, pcb_t *caller, UserContext *user_context)
 {
     if (lock->owner_pcb->pid != caller->pid)
     {
-        return ERROR_NOT_OWNER;
+        return ERROR;
     }
-    releaseLock(lock, lock->owner_pcb);
-    enqueue(cvar->waiting, lock->owner_pcb);
-
+    if (enqueue(cvar->waiting, caller) == -1)
+    {
+        return ERROR;
+    }
+    if (releaseLock(lock, caller) == -1)
+    {
+        return ERROR;
+    }
     runProcess();
-
-    acquireLock(lock, lock->owner_pcb);
+    TracePrintf(1, "Woke up from waiting, trying to acquire lock\n");
+    if (acquireLock(lock, caller) == -1)
+    {
+        return ERROR;
+    }
     return SUCCESS;
 }
 /**
@@ -1079,6 +1120,8 @@ int cSignal(Cvar_t *cvar, pcb_t *caller)
     pcb_t *pcb = (pcb_t *)node->data;
     free(node);
     enqueue(ready_queue, pcb);
+    TracePrintf(1, "Signaled a process, PID: %d\n", pcb->pid);
+    TracePrintf(1, "Put %s in the ready queue\n", pcb->name);
     return SUCCESS;
 }
 

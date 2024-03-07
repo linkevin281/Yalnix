@@ -34,7 +34,7 @@ int Y_Release(int lock_id);
 int Y_CvarInit(int *cvar_idp);
 int Y_CvarSignal(int cvar_id);
 int Y_CvarBroadcast(int cvar_id);
-int Y_Cvarwait(int cvar_id, int lock_id);
+int Y_CvarWait(int cvar_id, int lock_id);
 int Y_Reclaim(int id);
 int Y_Custom0(void);
 

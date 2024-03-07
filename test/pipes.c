@@ -171,5 +171,8 @@ void main(void)
         char* parent_str_yay = "doge";
         PipeWrite(*pipe_holder, parent_str_yay, strlen(parent_str_yay) + 1);
         TracePrintf(1, "I am the parent, and just wrote to the pipe so my children can try reading...\n");
-    
+        Delay(12);
+        TracePrintf(1, "I am the parent, and I will now write to the pipe so my second waiting child can be done waiting...\n");
+        char* parent_str_yiy = "boge";
+        int len = PipeWrite(*pipe_holder, parent_str_yiy, 5);
 }

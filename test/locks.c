@@ -63,6 +63,7 @@ void test_basic_lock()
         lock_release(lock_id);
         int status;
         Wait(&status);
+        TracePrintf(1, "Parent: Child exited with status %d\n", status);
         if (status != SUCCESS)
         {
             Exit(FAILURE);
@@ -94,11 +95,14 @@ void test_double_acquire()
     }
 }
 
+// Note: This fails when the BSS pages are more than 1. This is due to all the children writing to their own user memory space rather than the shared array.
+//       In cases where BSS is more than 1, the data where the array is stored is being overwritten. We are getting lucky in that when BSS is 1, the array stored 
+//       at a location with a consistent sequence of bits. This can be fixed by introducing a mmap syscall that helps remap the pages used by the array to the same
+//       physical frame. That way, they all write and read to the proper physical mem. 
 void test_mutual_exclusion()
 {
     int lock_id = lock_init();
     int *arr = malloc(sizeof(int) * 10);
-    TracePrintf(1, "STARTBRK: %p\n", sbrk(0));
     for (int i = 0; i < 10; i++)
     {
         TracePrintf(1, "START: Mem location of arr[%d]: %p\n", i, &arr[i]);
@@ -178,7 +182,7 @@ void test_mutual_exclusion()
                 TracePrintf(1, "MEM: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
                 if (arr[i] != first_element)
                 {
-                    TracePrintf(1, "Array is not consistent, someone wrote to it while the lock was LOCKED\n");
+                    TracePrintf(1, "Array is bogus and inconsistent, someone wrote to it while the lock was LOCKED\n");
                     Exit(FAILURE);
                 }
                 TracePrintf(1, "END MAIN: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
@@ -194,19 +198,6 @@ void test_mutual_exclusion()
             Exit(FAILURE);
         }
     }
-}
-
-void test_fork_inheritance()
-{
-    int lock_id = lock_init();
-    lock_acquire(lock_id);
-    int pid = Fork();
-    if (pid == -1)
-    {
-        TracePrintf(1, "Happy happy happy. Fork failed\n");
-        Exit(SUCCESS);
-    }
-    Exit(FAILURE);
 }
 
 void run_test(void (*test_func)(), char *test_name)
@@ -243,9 +234,4 @@ void main(void)
     run_test(test_double_acquire, "Test 2: Double Lock Acquire and Release");
     // What if we have two processes trying to write to the same array? AND we pause halfway through?
     run_test(test_mutual_exclusion, "Test 3: Mutual Exclusion");
-    // What if we fork a process WITH a lock in hand?
-    run_test(test_fork_inheritance, "Test 4: Fork Inheritance");
-    TracePrintf(1, "ENDING BRK: %p\n", sbrk(0));
-    // What if a process dies with a lock in hand? Or multiple??
-    // run_test(test_lock_leaks, "Test 5: Lock Leaks");
 }

@@ -44,6 +44,19 @@ int lock_init()
     return *lock_id;
 }
 
+void test_fork_inheritance()
+{
+    int lock_id = lock_init();
+    lock_acquire(lock_id);
+    int pid = Fork();
+    if (pid == -1)
+    {
+        TracePrintf(1, "Happy happy happy. Fork failed\n");
+        Exit(SUCCESS);
+    }
+    Exit(FAILURE);
+}
+
 void test_lock_leaks()
 {
     int pid = Fork();
@@ -51,7 +64,7 @@ void test_lock_leaks()
     {
         TracePrintf(1, "I'm the child, greedily consuming all locks now.\n");
         int lock_id;
-        
+
         while ((lock_id = lock_init()) != -1)
         {
             continue;
@@ -114,6 +127,8 @@ void run_test(void (*test_func)(), char *test_name)
 void main(void)
 {
     TracePrintf(1, "Running locks1.c tests...\n");
+    // What if we fork a process WITH a lock in hand?
+    run_test(test_fork_inheritance, "Test 4: Fork Inheritance");
     // What if a process dies with a lock in hand? Or multiple??
     run_test(test_lock_leaks, "Test 5: Lock Leaks");
 }

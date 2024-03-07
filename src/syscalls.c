@@ -32,6 +32,7 @@ int Y_Fork()
     strncpy(name, current_process->name, 248);
     strcat(name, "_child");
     pcb_t *child = (pcb_t *)createPCB(name);
+    free(name);
     TracePrintf(1, "Fork pt 1\n");
     if (child == NULL)
     {
@@ -509,6 +510,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
     int curr_len = strlen(curr_node->data);
     if(curr_len + bytes_read < len){
             memcpy(buf, curr_node->data, curr_len);
+            free(curr_node->data);
             bytes_read+= curr_len;
             dequeue(input_queue);
             curr_node = input_queue->tail->prev;
@@ -520,6 +522,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
         }
         else{
             memcpy(buf, curr_node->data, curr_len);
+            free(curr_node->data);
             dequeue(input_queue);
         }
     }
@@ -575,6 +578,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     }
 
     dequeue(want_to_write_to[tty_id]);
+    free(kernel_buff);
 
     return bytes_read == len ? len : ERROR;
 }

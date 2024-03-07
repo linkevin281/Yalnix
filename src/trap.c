@@ -259,6 +259,7 @@ void TrapTTYReceive(UserContext *user_context)
 
     int terminal_num = user_context->code;
     void *address_to_copy_to = malloc(TERMINAL_MAX_LINE);
+    memset(address_to_copy_to, '\0', TERMINAL_MAX_LINE);
 
     int input_length = TtyReceive(terminal_num, address_to_copy_to, TERMINAL_MAX_LINE);
     enqueue(terminal_input_buffers[terminal_num], address_to_copy_to);

@@ -25,17 +25,18 @@ void main(void)
 
 
     // take some input and print result
-    char* prompt = "Give me input:";
+    char* prompt = "Give me input: ";
     TtyWrite(0, prompt, strlen(prompt) + 1);
     char* buf = malloc(TERMINAL_MAX_LINE - 1);
-    TtyRead(0, buf, TERMINAL_MAX_LINE - 1);
+    int len = TtyRead(0, buf, TERMINAL_MAX_LINE - 1);
     TracePrintf(1, "TGT past reading!\n");
     TracePrintf(1, "given that, buf is now: %s", buf);
     char* give_to_user = "I just read your input as:\n";
     int res;
     res = TtyWrite(0, give_to_user, strlen(give_to_user) + 1);
     TracePrintf(1, "in WR test, res of writing to terminal: %d\n", res);
-    res = TtyWrite(0, buf, strlen(buf) + 1);
+    res = TtyWrite(0, buf, len);
+    TracePrintf(1, "in WR test, first string read in: %s with length %d\n", buf, len);
     TracePrintf(1, "in WR test, res of writing to terminal second time: %d\n", res);
 
 
@@ -43,7 +44,8 @@ void main(void)
     char* prompt_2 = "Give me input, and I will print it to terminal 1: ";
     char* buf_2 = malloc(TERMINAL_MAX_LINE);
     TtyWrite(0, prompt_2, strlen(prompt_2) + 1);
-    int len = TtyRead(0, buf_2, TERMINAL_MAX_LINE);
+    len = TtyRead(0, buf_2, TERMINAL_MAX_LINE);
+    TracePrintf(1, "in WR test, second string read in: %s with length %d\n", buf_2, len);
     res = TtyWrite(1, buf_2, len);
     TracePrintf(1, "in WR test, res of writing to terminal 1 with input from terminal 0: %d\n", res);
 
@@ -52,6 +54,7 @@ void main(void)
     char* buf_3 = malloc(TERMINAL_MAX_LINE);
     len = TtyRead(0, buf_3, TERMINAL_MAX_LINE);
     res = TtyWrite(0, give_to_user, strlen(give_to_user) + 1);
+    TracePrintf(1, "in WR test, third string read in: %s with length %d\n", buf_3, len);
     res = TtyWrite(0, buf_3, len);
     TracePrintf(1, "in WR test, res of writing to terminal second time: %d\n", res);
 

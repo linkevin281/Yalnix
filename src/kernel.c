@@ -451,8 +451,12 @@ int runProcess()
     }
     else
     {
+        TracePrintf(1, "Dequeueing next process\n");
+        TracePrintf(1, "Ready queue size: %d\n", getSize(ready_queue));
         Node_t *pcb_node = dequeue(ready_queue);
+        TracePrintf(1, "Dequeued next process\n");
         pcb_t *curr = (pcb_t *)pcb_node->data;
+        TracePrintf(1, "Dequeued next process: %s\n", curr->name);
         free(pcb_node);
         next = curr;
     }
@@ -988,4 +992,25 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     curr->next = node;
     queue->size++;
     return 0;
+}
+
+int peekMultiPCB(Queue_t *queue, int count)
+{
+    TracePrintf(1, "Peeking %d pcbs in queue\n", count);
+    if (isEmpty(queue))
+    {
+        return ERROR;
+    }
+    Node_t *curr = queue->head->next;
+    while (count > 0)
+    {
+        pcb_t *pcb = (pcb_t *)curr->data;
+        if (pcb == NULL)
+        {
+            return ERROR;
+        }
+        TracePrintf(1, "Name: %s, PID: %d, parent_n: %s, parent_pid: %d\n", pcb->name, pcb->pid, pcb->parent->name, pcb->parent->pid);
+        count--;
+        curr = curr->next;
+    }
 }

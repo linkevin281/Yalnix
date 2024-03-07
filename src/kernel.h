@@ -24,3 +24,4 @@ pcb_t *initProcess(UserContext *uctxt, char *args[], char *name);
 pcb_t *createPCB(char* name);
 int LoadProgram(char *name, char *args[], pcb_t *pcb);
 int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb);
+int peekMultiPCB(Queue_t *queue, int count);

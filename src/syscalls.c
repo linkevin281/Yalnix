@@ -48,7 +48,7 @@ int Y_Fork()
     // Update Parent and Child
     child->parent = current_process;
     enqueue(current_process->children, child);
-
+    TracePrintf(1, "Memo location of child: %p, childPDI: %d\n", child, child->pid);
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
@@ -238,8 +238,10 @@ int Y_Exit(int status)
      */
 
     TracePrintf(1, "SYSCALL: Y_Exit\n");
+
     // if current process is init process, halt the system
-    if(current_process == init_process) Halt();
+    if (current_process == init_process)
+        Halt();
     TracePrintf(1, "In exit, my pid is %d, my name is %s\n", current_process->pid, current_process->name);
     current_process->is_alive = 0;
 
@@ -253,11 +255,14 @@ int Y_Exit(int status)
         enqueue(empty_locks, lock);
     }
 
-     TracePrintf(1, "in exit syscall, point 3\n");
+    TracePrintf(1, "in exit syscall, point 3\n");
     // add to queue of zombies for parent
-    if(current_process->parent != NULL){
-    enqueue(current_process->parent->zombies, current_process);
-    TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
+    if (current_process->parent != NULL)
+    {
+        enqueue(current_process->parent->zombies, current_process);
+        TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
+        TracePrintf(1, "Removing myself from my parent's children queue...\n");
+        removePCBNode(current_process->parent->children, current_process);
     }
 
     TracePrintf(1, "in exit syscall, point 4\n");
@@ -310,12 +315,18 @@ int Y_Exit(int status)
     }
 
     // tell children they've been orphaned
-    Queue_t* kids = current_process->children;
-    while(getSize(kids) > 0){
-        Node_t* curr = dequeue(kids);
-        pcb_t* curr_pcb = curr->data;
+    Queue_t *kids = current_process->children;
+    TracePrintf(1, "size kids queue: %d\n", getSize(kids));
+    while (getSize(kids) > 0)
+    {
+        Node_t *curr = dequeue(kids);
+        pcb_t *curr_pcb = curr->data;
+        TracePrintf(1, "Child memory address: %p\n", curr_pcb);
+        TracePrintf(1, "Just orphaned child %d from parent %d\n", curr_pcb->pid, current_process->pid);
+        TracePrintf(1, "Currpcb parent: %d\n", curr_pcb->parent->pid);
         curr_pcb->parent = NULL;
     }
+
     deleteQueue(current_process->children);
     deleteQueue(current_process->zombies);
     deleteQueue(current_process->pipes);
@@ -349,12 +360,39 @@ int Y_Exit(int status)
         }
     }
 
-    if(current_process->parent == NULL){
+    if (current_process->parent == NULL)
+    {
         free(current_process);
     }
 
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
 
+    // Section 3.4
+    switch (status)
+    {
+    case ILLEGAL_INSTRUCTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Illegal instruction. PID: %d\n", current_process->pid);
+        break;
+    case ILLEGAL_MEM_ADDR:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Illegal memory address. Invalid permissions, address is not in userland, or address is too close to heap. PID: %d\n", current_process->pid);
+        break;
+    case EXECPTION_OUT_OF_MEM:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Out of memory. PID: %d\n", current_process->pid);
+        break;
+    case FLOATING_POINT_EXCEPTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Floating point exception. PID: %d\n", current_process->pid);
+        break;
+    case GENERAL_EXCEPTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "General exception. PID: %d\n", current_process->pid);
+        break;
+    default:
+        break;
+    }
     // no further scheduling logic needed, we can run the next process
     runProcess();
 }
@@ -431,7 +469,7 @@ int Y_Getpid()
      * Using curr_process variable in kernel, get the pcb of the current process
      * Return the pid of the current process from this pcb
      */
-TracePrintf(1, "SYSCALL: Y_Getpid\n");
+    TracePrintf(1, "SYSCALL: Y_Getpid\n");
     return current_process->pid;
 }
 
@@ -520,7 +558,8 @@ int Y_Delay(int num_ticks)
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
      */
-    if(num_ticks < 0){
+    if (num_ticks < 0)
+    {
         TracePrintf(1, "ERROR: number of ticks must be at least 0\n");
         return ERROR;
     }
@@ -669,7 +708,8 @@ int Y_Pipeinit(int *pipe_idp)
      * 5. Return 0
      */
 
-    if(getSize(empty_pipes) == 0){
+    if (getSize(empty_pipes) == 0)
+    {
         TracePrintf(1, "Error - all pipes in use!\n");
         return ERROR;
     }
@@ -1026,22 +1066,22 @@ int Y_Reclaim(int id)
     }
     if (id < MAX_PIPES)
     {
-    int i = id;
-    pipes[i].id = i;
-    pipes[i].read_pos = 0;
-    pipes[i].write_pos = 0;
-    pipes[i].exists = 0;
-    pipes[i].num_bytes_in_pipe = 0;
-    pipes[i].reader = NULL;
-    pipes[i].writer = NULL;
-    int *to_enqueue = malloc(sizeof(int));
-    memcpy(to_enqueue, &i, sizeof(int));
-    enqueue(empty_pipes, to_enqueue);
-    Queue_t *pq_1 = createQueue();
-    Queue_t *pq_2 = createQueue();
-    want_to_read_pipe[i] = pq_1;
-    want_to_write_pipe[i] = pq_2;
-    can_interact_with_pipe[i] = 1;
+        int i = id;
+        pipes[i].id = i;
+        pipes[i].read_pos = 0;
+        pipes[i].write_pos = 0;
+        pipes[i].exists = 0;
+        pipes[i].num_bytes_in_pipe = 0;
+        pipes[i].reader = NULL;
+        pipes[i].writer = NULL;
+        int *to_enqueue = malloc(sizeof(int));
+        memcpy(to_enqueue, &i, sizeof(int));
+        enqueue(empty_pipes, to_enqueue);
+        Queue_t *pq_1 = createQueue();
+        Queue_t *pq_2 = createQueue();
+        want_to_read_pipe[i] = pq_1;
+        want_to_write_pipe[i] = pq_2;
+        can_interact_with_pipe[i] = 1;
     }
     else if (id < MAX_PIPES + NUM_LOCKS)
     {
@@ -1063,7 +1103,6 @@ int Y_Reclaim(int id)
         memcpy(cvar_id, &id, sizeof(int));
         enqueue(empty_cvars, cvar_id);
     }
-
 }
 
 int Y_Custom0(void)

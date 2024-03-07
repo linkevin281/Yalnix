@@ -994,6 +994,29 @@ int enqueueDelayQueue(Queue_t *queue, pcb_t *pcb)
     return 0;
 }
 
+int removePCBNode(Queue_t *queue, pcb_t *pcb)
+{
+    TracePrintf(1, "Removing pcb with pid %d from queue\n", pcb->pid);
+    if (pcb == NULL)
+    {
+        return -1;
+    }
+    Node_t *curr = queue->head->next;
+    while (curr->data != NULL)
+    {
+        if (((pcb_t *)curr->data)->pid == pcb->pid)
+        {
+            curr->prev->next = curr->next;
+            curr->next->prev = curr->prev;
+            free(curr);
+            queue->size--;
+            return 0;
+        }
+        curr = curr->next;
+    }
+    return -1;
+}
+
 int peekMultiPCB(Queue_t *queue, int count)
 {
     TracePrintf(1, "Peeking %d pcbs in queue\n", count);

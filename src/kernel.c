@@ -1050,7 +1050,7 @@ int is_writable_buffer(char* str, int len){
             return 0;
         }
         int curr_page = DOWN_TO_PAGE(addr) >> PAGESHIFT;
-        pte_t curr_pte = current_process->userland_pt[curr_page];
+        pte_t curr_pte = current_process->userland_pt[curr_page - MAX_PT_LEN];
         if(curr_pte.prot & PROT_WRITE){
             continue;
         }
@@ -1074,7 +1074,7 @@ int is_readable_string(char* str){
             return 0;
         }
         int curr_page = DOWN_TO_PAGE(addr) >> PAGESHIFT;
-        pte_t curr_pte = current_process->userland_pt[curr_page];
+        pte_t curr_pte = current_process->userland_pt[curr_page - MAX_PT_LEN];
         if(curr_pte.prot & PROT_READ){
             continue;
         }

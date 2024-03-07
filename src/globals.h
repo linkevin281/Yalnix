@@ -113,6 +113,7 @@ extern int kernel_brk;
 
 extern pcb_t *current_process;
 extern pcb_t *idle_process;
+extern pcb_t *init_process;
 
 // For delay and traps
 extern int clock_ticks;

@@ -55,6 +55,7 @@ int kernel_brk = 0;
 
 pcb_t *current_process;
 pcb_t *idle_process;
+pcb_t *init_process;
 
 // For delay and traps
 int clock_ticks = 0;
@@ -256,7 +257,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     }
     char *pid_process_name = "./test/pid";
 
-    pcb_t *init_process = initProcess(uctxt, cmd_args, init_process_name);
+    init_process = initProcess(uctxt, cmd_args, init_process_name);
     idle_process = initIdleProcess(uctxt, cmd_args, idle_process_name);
 
     init_process->parent = idle_process;

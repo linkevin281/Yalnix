@@ -37,9 +37,11 @@ int main(argc, argv)
     {
       TracePrintf(0,"CHILD\n");
       recurse("child", 33);
+      Exit(0);
     }
   else
     {
+      Delay(4);
       TracePrintf(0,"PARENT: child pid = %d\n", pid);
       recurse("parent", 33);
     }

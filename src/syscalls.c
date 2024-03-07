@@ -234,7 +234,8 @@ int Y_Exit(int status)
      */
 
     TracePrintf(1, "SYSCALL: Y_Exit\n");
-
+    // if current process is init process, halt the system
+    if(current_process == init_process) Halt();
     TracePrintf(1, "In exit, my pid is %d, my name is %s\n", current_process->pid, current_process->name);
     current_process->is_alive = 0;
 
@@ -248,39 +249,12 @@ int Y_Exit(int status)
         enqueue(empty_locks, lock);
     }
 
-    // return all of userland to free frames queue
-    int frame_to_free;
-    for (int i = 0; i < MAX_PT_LEN; i++)
-    {
-        int curr_pfn = current_process->userland_pt[i].pfn;
-        // if the curr pfn is an actual frame
-        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
-        {
-            deallocateFrame(curr_pfn);
-        }
-    }
-
-    TracePrintf(1, "in exit syscall, point 2\n");
-
-    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
-
-    // return kernel stack frames to free frames queue
-    for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
-    {
-        int curr_pfn = current_process->kernel_stack_pt[i].pfn;
-        // if the curr pfn is an actual frame
-        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
-        {
-            deallocateFrame(curr_pfn);
-        }
-    }
-
-    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
-
-    TracePrintf(1, "in exit syscall, point 3\n");
+     TracePrintf(1, "in exit syscall, point 3\n");
     // add to queue of zombies for parent
+    if(current_process->parent != NULL){
     enqueue(current_process->parent->zombies, current_process);
     TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
+    }
 
     TracePrintf(1, "in exit syscall, point 4\n");
     current_process->exit_status = status;
@@ -345,6 +319,53 @@ int Y_Exit(int status)
         }
         free(curr_pipe_node);
     }
+
+    // tell children they've been orphaned
+    Queue_t* kids = current_process->children;
+    while(getSize(kids) > 0){
+        Node_t* curr = dequeue(kids);
+        pcb_t* curr_pcb = curr->data;
+        curr_pcb->parent = NULL;
+    }
+    deleteQueue(current_process->children);
+    deleteQueue(current_process->zombies);
+    deleteQueue(current_process->pipes);
+    deleteQueue(current_process->inited_locks);
+    deleteQueue(current_process->owned_locks);
+
+    // return all of userland to free frames queue
+    int frame_to_free;
+    for (int i = 0; i < MAX_PT_LEN; i++)
+    {
+        int curr_pfn = current_process->userland_pt[i].pfn;
+        // if the curr pfn is an actual frame
+        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
+        {
+            deallocateFrame(curr_pfn);
+        }
+    }
+
+    TracePrintf(1, "in exit syscall, point 2\n");
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_ALL);
+
+    // return kernel stack frames to free frames queue
+    for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
+    {
+        int curr_pfn = current_process->kernel_stack_pt[i].pfn;
+        // if the curr pfn is an actual frame
+        if (curr_pfn >= 0 && curr_pfn < (int)(pmem_size_holder / PAGESIZE))
+        {
+            deallocateFrame(curr_pfn);
+        }
+    }
+
+    if(current_process->parent == NULL){
+        free(current_process);
+    }
+
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
+
     // no further scheduling logic needed, we can run the next process
     runProcess();
 }
@@ -372,12 +393,14 @@ int Y_Wait(int *status)
         TracePrintf(1, "WAIT zombies in queue!\n");
         Node_t *child_container = dequeue(current_process->zombies);
         pcb_t *child = child_container->data;
+        int child_pid = child->pid;
         if (status != NULL)
         {
             memcpy(status, &(child->exit_status), sizeof(int));
         }
         free(child_container);
-        return child->pid;
+        free(child);
+        return child_pid;
     }
 
     // immediately run the next process
@@ -396,6 +419,7 @@ int Y_Wait(int *status)
     Node_t *child_container = dequeue(current_process->zombies);
     TracePrintf(1, "WAIT checkpoint 1\n");
     pcb_t *child = child_container->data;
+    int child_pid = child->pid;
     TracePrintf(1, "TAGET child's pid: %d\n", child->pid);
     TracePrintf(1, "WAIT checkpoint 2\n");
     if (status != NULL)
@@ -404,7 +428,8 @@ int Y_Wait(int *status)
     }
     TracePrintf(1, "the child is done let's gooooo!\n");
     free(child_container);
-    return child->pid;
+    free(child);
+    return child_pid;
 }
 
 int Y_Getpid()

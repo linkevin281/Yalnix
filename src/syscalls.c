@@ -151,6 +151,10 @@ int Y_Fork()
 int Y_Exec(char *filename, char *argv[])
 {
     TracePrintf(1, "SYSCALL: Y_Exec\n");
+    if(!is_readable_string(filename) || !is_readable_buffer(argv, MAX_ARG_LEN)){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     char **args_copy = malloc(sizeof(char *) * MAX_ARGS);
     char *name_copy = malloc(sizeof(char) * MAX_ARG_LEN);
     strncpy(name_copy, filename, MAX_ARG_LEN);
@@ -516,7 +520,7 @@ int Y_Delay(int num_ticks)
         TracePrintf(1, "ERROR: number of ticks must be at least 0\n");
         return ERROR;
     }
-    
+
     TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
     enqueueDelayQueue(delay_queue, current_process);

@@ -48,7 +48,7 @@ int Y_Fork()
     // Update Parent and Child
     child->parent = current_process;
     enqueue(current_process->children, child);
-
+    TracePrintf(1, "Memo location of child: %p, childPDI: %d\n", child, child->pid);
     // Setup Kernel Stack
     for (int i = 0; i < KERNEL_STACK_MAXSIZE / PAGESIZE; i++)
     {
@@ -257,6 +257,8 @@ int Y_Exit(int status)
     {
         enqueue(current_process->parent->zombies, current_process);
         TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
+        TracePrintf(1, "Removing myself from my parent's children queue...\n");
+        removePCBNode(current_process->parent->children, current_process);
     }
 
     TracePrintf(1, "in exit syscall, point 4\n");
@@ -310,12 +312,17 @@ int Y_Exit(int status)
 
     // tell children they've been orphaned
     Queue_t *kids = current_process->children;
+    TracePrintf(1, "size kids queue: %d\n", getSize(kids));
     while (getSize(kids) > 0)
     {
         Node_t *curr = dequeue(kids);
         pcb_t *curr_pcb = curr->data;
+        TracePrintf(1, "Child memory address: %p\n", curr_pcb);
+        TracePrintf(1, "Just orphaned child %d from parent %d\n", curr_pcb->pid, current_process->pid);
+        TracePrintf(1, "Currpcb parent: %d\n", curr_pcb->parent->pid);
         curr_pcb->parent = NULL;
     }
+
     deleteQueue(current_process->children);
     deleteQueue(current_process->zombies);
     deleteQueue(current_process->pipes);
@@ -543,11 +550,12 @@ int Y_Delay(int num_ticks)
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
      */
-    if(num_ticks < 0){
+    if (num_ticks < 0)
+    {
         TracePrintf(1, "ERROR: number of ticks must be at least 0\n");
         return ERROR;
     }
-    
+
     TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
     enqueueDelayQueue(delay_queue, current_process);
@@ -679,7 +687,8 @@ int Y_Pipeinit(int *pipe_idp)
      * 5. Return 0
      */
 
-    if(getSize(empty_pipes) == 0){
+    if (getSize(empty_pipes) == 0)
+    {
         TracePrintf(1, "Error - all pipes in use!\n");
         return ERROR;
     }
@@ -1020,22 +1029,22 @@ int Y_Reclaim(int id)
     }
     if (id < MAX_PIPES)
     {
-    int i = id;
-    pipes[i].id = i;
-    pipes[i].read_pos = 0;
-    pipes[i].write_pos = 0;
-    pipes[i].exists = 0;
-    pipes[i].num_bytes_in_pipe = 0;
-    pipes[i].reader = NULL;
-    pipes[i].writer = NULL;
-    int *to_enqueue = malloc(sizeof(int));
-    memcpy(to_enqueue, &i, sizeof(int));
-    enqueue(empty_pipes, to_enqueue);
-    Queue_t *pq_1 = createQueue();
-    Queue_t *pq_2 = createQueue();
-    want_to_read_pipe[i] = pq_1;
-    want_to_write_pipe[i] = pq_2;
-    can_interact_with_pipe[i] = 1;
+        int i = id;
+        pipes[i].id = i;
+        pipes[i].read_pos = 0;
+        pipes[i].write_pos = 0;
+        pipes[i].exists = 0;
+        pipes[i].num_bytes_in_pipe = 0;
+        pipes[i].reader = NULL;
+        pipes[i].writer = NULL;
+        int *to_enqueue = malloc(sizeof(int));
+        memcpy(to_enqueue, &i, sizeof(int));
+        enqueue(empty_pipes, to_enqueue);
+        Queue_t *pq_1 = createQueue();
+        Queue_t *pq_2 = createQueue();
+        want_to_read_pipe[i] = pq_1;
+        want_to_write_pipe[i] = pq_2;
+        can_interact_with_pipe[i] = 1;
     }
     else if (id < MAX_PIPES + NUM_LOCKS)
     {

@@ -1004,15 +1004,6 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
         TracePrintf(1, "No waiting\n");
         lock->is_locked = 0;
         lock->owner_pcb = NULL;
-        TracePrintf(1, "Trying to match lock id: %d\n", lock->lock_id);
-        TracePrintf(1, "Owned locks size: %d\n", pcb->owned_locks->size);
-        int remove = removeFrameNode(pcb->owned_locks, lock->lock_id);
-        if (remove == ERROR)
-        {
-            TracePrintf(1, "Error removing lock from owned locks\n");
-            return ERROR;
-        }
-        return SUCCESS;
     }
     else
     {
@@ -1021,8 +1012,17 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
         TracePrintf(1, "Found a waiter PID: %d, waking them up\n", pcb->pid);
         free(node);
         enqueue(ready_queue, pcb);
-        return SUCCESS;
     }
+
+    TracePrintf(1, "Removing this lock from owned locks. Trying to match lock id: %d\n", lock->lock_id);
+    TracePrintf(1, "Owned locks size: %d\n", pcb->owned_locks->size);
+    int remove = removeFrameNode(pcb->owned_locks, lock->lock_id);
+    if (remove == ERROR)
+    {
+        TracePrintf(1, "Error removing lock from owned locks\n");
+        return ERROR;
+    }
+    return SUCCESS;
 }
 
 /**

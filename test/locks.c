@@ -191,46 +191,46 @@ void test_fork_inheritance()
     Exit(FAILURE);
 }
 
-// void test_lock_leaks()
-// {
-//     int pid = Fork();
-//     if (pid == 0)
-//     {
-//         TracePrintf(1, "I'm the child, greedily consuming all locks now.\n");
-//         int lock_id;
-//         while ((lock_id = lock_init()) != -1)
-//         {
-//             continue;
-//         }
-//         TracePrintf(1, "Looks like I've consumed all the locks (Total: %d) muhahahahaha. I'm pausing.\n", lock_id + 1);
-//         Pause();
-//         TracePrintf(1, "I'm back (child)! Dying now\n");
-//         Exit(SUCCESS);
-//     }
-//     else if (pid > 0)
-//     {
-//         TracePrintf(1, "I'm the parent, pausing to let the child consume all the locks\n");
-//         Pause();
-//         TracePrintf(1, "I'm the parent, trying to consume a lock now!");
-//         int lock_id = lock_init();
-//         if (lock_id != -1)
-//         {
-//             TracePrintf(1, "How did I get a lock? I'm a parent! I'm going to die now.\n");
-//             Exit(FAILURE);
-//         }
-//         TracePrintf(1, "Looks like I didn't get a lock. Waiting for the child\n");
-//         int status;
-//         Wait(&status);
-//         TracePrintf(1, "I'm back (parent)! Trying again\n");
-//         lock_id = lock_init();
-//         if (lock_id == -1)
-//         {
-//             TracePrintf(1, "Why are there no locks left? I'm going to die now.\n");
-//             Exit(FAILURE);
-//         }
-//         Exit(SUCCESS);
-//     }
-// }
+void test_lock_leaks()
+{
+    int pid = Fork();
+    if (pid == 0)
+    {
+        TracePrintf(1, "I'm the child, greedily consuming all locks now.\n");
+        int lock_id;
+        while ((lock_id = lock_init()) != -1)
+        {
+            continue;
+        }
+        TracePrintf(1, "Looks like I've consumed all the locks (Total: %d) muhahahahaha. I'm pausing.\n", lock_id + 1);
+        Pause();
+        TracePrintf(1, "I'm back (child)! Dying now\n");
+        Exit(SUCCESS);
+    }
+    else if (pid > 0)
+    {
+        TracePrintf(1, "I'm the parent, pausing to let the child consume all the locks\n");
+        Pause();
+        TracePrintf(1, "I'm the parent, trying to consume a lock now!");
+        int lock_id = lock_init();
+        if (lock_id != -1)
+        {
+            TracePrintf(1, "How did I get a lock? I'm a parent! I'm going to die now.\n");
+            Exit(FAILURE);
+        }
+        TracePrintf(1, "Looks like I didn't get a lock. Waiting for the child\n");
+        int status;
+        Wait(&status);
+        TracePrintf(1, "I'm back (parent)! Trying again\n");
+        lock_id = lock_init();
+        if (lock_id == -1)
+        {
+            TracePrintf(1, "Why are there no locks left? I'm going to die now.\n");
+            Exit(FAILURE);
+        }
+        Exit(SUCCESS);
+    }
+}
 
 void run_test(void (*test_func)(), char *test_name)
 {
@@ -239,8 +239,8 @@ void run_test(void (*test_func)(), char *test_name)
     {
         TracePrintf(1, "Running %s...\n", test_name);
         test_func();
-        TracePrintf(1, "%s died\n", test_name);
-        Exit(SUCCESS);
+        TracePrintf(1, "ERROR: TEST FUNCTION DID NOT EXIT\n");
+        Exit(FAILURE);
     }
     else if (pid > 0)
     {

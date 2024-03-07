@@ -285,9 +285,10 @@ int Y_Exit(int status)
     current_process->exit_status = status;
 
     // wake parent, if waiting on this process, and add to the ready queue
-    if (current_process->parent != NULL && current_process->parent->is_alive)
+    if (current_process->parent != NULL && current_process->parent->is_alive && current_process->parent->is_waiting)
     {
         enqueue(ready_queue, current_process->parent);
+        current_process->parent->is_waiting = 0;
     }
 
     // Release all held locks and wake any processes on them. Wake parent, if waiting on this process, and add to the ready queue
@@ -382,6 +383,7 @@ int Y_Wait(int *status)
 
     TracePrintf(1, "WAIT about to run process\n");
     // this will add the current process to the waiting queue
+    current_process->is_waiting = 1;
     while (getSize(current_process->zombies) < 1)
     {
         runProcess();

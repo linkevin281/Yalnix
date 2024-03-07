@@ -34,7 +34,8 @@ typedef struct pcb
     int delayed_until; // time this pcb is delayed until
     Queue_t *children;
     Queue_t *zombies;
-    Queue_t* pipes; //to store pointers to all pipes this process reads or writes on
+    Queue_t *pipes; // to store pointers to all pipes this process reads or writes on
+    int is_waiting; // 0 if not waiting, 1 if waiting
 
     UserContext user_c;
     KernelContext kernel_c;
@@ -48,13 +49,14 @@ typedef struct pcb
     Queue_t *owned_locks;
 } pcb_t;
 
-typedef struct Pipe {
-    int id;                    // index in pipes array
-    pcb_t* reader;
-    pcb_t* writer;
+typedef struct Pipe
+{
+    int id; // index in pipes array
+    pcb_t *reader;
+    pcb_t *writer;
     int read_pos;
     int write_pos;
-    char buffer[PIPE_BUFFER_LEN]; 
+    char buffer[PIPE_BUFFER_LEN];
     Queue_t *readers;
     int exists;
     int num_bytes_in_pipe;
@@ -99,8 +101,8 @@ extern int can_write_to_terminal[NUM_TERMINALS];
 extern int can_read_from_terminal[NUM_TERMINALS];
 
 // queues of processes waiting to read or write from pipes
-extern Queue_t* want_to_read_pipe[MAX_PIPES];
-extern Queue_t* want_to_write_pipe[MAX_PIPES];
+extern Queue_t *want_to_read_pipe[MAX_PIPES];
+extern Queue_t *want_to_write_pipe[MAX_PIPES];
 
 // 0 if we can't read or write to pipe at the moment, 1 otherwise
 extern int can_interact_with_pipe[MAX_PIPES];

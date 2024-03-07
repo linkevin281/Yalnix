@@ -285,6 +285,44 @@ int Y_Exit(int status)
                 enqueue(ready_queue, current_process->parent);
             }
         }
+
+    // free pipes that this process was involved with, as needed
+    // idle process is used as a placeholder for pipe reader/writer with processes that have died
+    Queue_t* curr_pipe_queue = current_process->pipes;
+    Node_t* curr_pipe_node;
+
+    while((curr_pipe_node = dequeue(curr_pipe_queue)) != NULL){
+        Pipe_t* curr_pipe = (Pipe_t*)(curr_pipe_node->data);
+        // if both reader and writer of the pipe are gone, we free the pipe
+        if((curr_pipe->reader == current_process && curr_pipe->writer == idle_process)||
+        (curr_pipe->writer == current_process && curr_pipe->reader == idle_process)){
+            // clean the relevant pipe
+            // add relevant pipe to empty pipes queue
+            int i = curr_pipe->id;
+            pipes[i].id = i;
+            pipes[i].read_pos = 0;
+            pipes[i].write_pos = 0;
+            pipes[i].exists = 0;
+            pipes[i].num_bytes_in_pipe = 0;
+            pipes[i].reader = NULL;
+            pipes[i].writer = NULL;
+            int* to_enqueue = malloc(sizeof(int));
+            memcpy(to_enqueue, &i, sizeof(int));
+            enqueue(empty_pipes, to_enqueue);
+            Queue_t* pq_1 = createQueue();
+            Queue_t* pq_2 = createQueue();
+            want_to_read_pipe[i] = pq_1;
+            want_to_write_pipe[i] = pq_2;
+            can_interact_with_pipe[i] = 1;
+        }
+
+        else if (curr_pipe->reader == current_process){
+            curr_pipe->reader = idle_process;
+        }
+        else if (curr_pipe->writer == current_process){
+            curr_pipe->writer = idle_process;
+        }
+    }
     // no further scheduling logic needed, we can run the next process
     runProcess();
 }
@@ -572,6 +610,8 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 7.   Return len
      */
     Pipe_t* curr_pipe = &(pipes[pipe_id]);
+    curr_pipe->reader = current_process;
+    enqueue(current_process->pipes, curr_pipe);
 
     char* buf_holder = (char*) buf;
     if(curr_pipe->exists == 0){
@@ -650,8 +690,14 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      * 7. Return len
      *
      */
-
+    TracePrintf(1, "0 fucker\n");
     Pipe_t* curr_pipe = &(pipes[pipe_id]);
+    TracePrintf(1, "1 fucker\n");
+    curr_pipe->writer = current_process;
+    TracePrintf(1, "2 fucker\n");
+    TracePrintf(1, "Size of pipes queue for current process: %d", getSize(current_process->pipes));
+    enqueue(current_process->pipes, curr_pipe);
+    TracePrintf(1, "3 fucker\n");
     char* buf_str = (char*) buf;
 
     if(curr_pipe->exists == 0){

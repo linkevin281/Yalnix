@@ -29,6 +29,7 @@ typedef struct pcb {
     Queue_t *children;
     Queue_t *zombies;
     Queue_t * waiters; //to store pointers to pcbs of processes waiting on this one
+    Queue_t* pipes; //to store pointers to all pipes this process reads or writes on
 
     UserContext user_c;
     KernelContext kernel_c;
@@ -54,8 +55,8 @@ typedef struct Cvar {
 
 typedef struct Pipe {
     int id;                    // index in pipes array
-    pcb_t* curr_reader;
-    pcb_t* curr_writer;
+    pcb_t* reader;
+    pcb_t* writer;
     int read_pos;
     int write_pos;
     char buffer[PIPE_BUFFER_LEN]; 

@@ -214,6 +214,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
         pipes[i].write_pos = 0;
         pipes[i].exists = 0;
         pipes[i].num_bytes_in_pipe = 0;
+        pipes[i].reader = NULL;
+        pipes[i].writer = NULL;
         int* to_enqueue = malloc(sizeof(int));
         memcpy(to_enqueue, &i, sizeof(int));
         enqueue(empty_pipes, to_enqueue);
@@ -596,6 +598,7 @@ pcb_t *createPCB(char* name)
     pcb->children = createQueue();
     pcb->zombies = createQueue();
     pcb->waiters = createQueue();
+    pcb->pipes = createQueue();
     pcb->brk = 0;
     pcb->is_waiting = 0;
 

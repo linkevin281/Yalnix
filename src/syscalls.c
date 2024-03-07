@@ -498,8 +498,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
     Node_t* curr_node = input_queue->tail->prev;
 
     // while there is no input available or another node is ahead of us in the read queue, we run other process
-    while(curr_node == input_queue->head || peekTail(want_to_read_from[tty_id])->data != current_process){
-        // TODO: clean up this logic for queueing 
+    while(curr_node == input_queue->head || ((getSize(want_to_read_from[tty_id]) > 0) && peekTail(want_to_read_from[tty_id])->data != current_process)){
         enqueue(ready_queue, current_process);
         runProcess();
         curr_node = input_queue->tail->prev;
@@ -547,8 +546,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
     memcpy(kernel_buff, buf, len);
 
     // if there's another process in line to write to this terminal, block
-    while(peekTail(want_to_write_to[tty_id])->data != current_process){
-        // TODO: clean up this scheduling logic
+    while(getSize(want_to_write_to[tty_id]) > 0 && peekTail(want_to_write_to[tty_id])->data != current_process){
         enqueue(ready_queue, current_process);
         runProcess();
     }

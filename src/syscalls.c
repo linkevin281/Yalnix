@@ -739,26 +739,19 @@ int Y_Piperead(int pipe_id, void *buf, int len)
         TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
         return ERROR;
     }
-    TracePrintf(1, "1 dick\n");
     Pipe_t *curr_pipe = &(pipes[pipe_id]);
     curr_pipe->reader = current_process;
-    TracePrintf(1, "2 dick\n");
     enqueue(current_process->pipes, curr_pipe);
-    TracePrintf(1, "3 dick\n");
     char *buf_holder = (char *)buf;
     if (curr_pipe->exists == 0)
     {
-        TracePrintf(1, "WOAH\n");
         return ERROR;
     }
-    TracePrintf(1, "4 dick\n");
     if (len > PIPE_BUFFER_LEN)
     {
-        TracePrintf(1, "WOAH2\n");
         return ERROR;
     }
     int bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
-    TracePrintf(1, "5 dick\n");
     TracePrintf(1, "bytes to read: %d\n", bytes_to_read);
     Queue_t *pipe_reading_queue = want_to_read_pipe[pipe_id];
 
@@ -776,7 +769,6 @@ int Y_Piperead(int pipe_id, void *buf, int len)
             TracePrintf(1, "We just can't interact with pipe\n");
         }
         runProcess();
-        TracePrintf(1, "shit yuh\n");
         bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
     }
 
@@ -838,14 +830,10 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
         TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
         return ERROR;
     }
-    TracePrintf(1, "0 fucker\n");
     Pipe_t *curr_pipe = &(pipes[pipe_id]);
-    TracePrintf(1, "1 fucker\n");
     curr_pipe->writer = current_process;
-    TracePrintf(1, "2 fucker\n");
     TracePrintf(1, "Size of pipes queue for current process: %d\n", getSize(current_process->pipes));
     enqueue(current_process->pipes, curr_pipe);
-    TracePrintf(1, "3 fucker\n");
     char *buf_str = (char *)buf;
 
     if (curr_pipe->exists == 0)

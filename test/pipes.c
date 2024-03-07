@@ -74,13 +74,11 @@ void main(void)
         Wait(holder);
 
     // wraparound
-    TracePrintf(1, "fuckerrr\n");
     pipe_holder = (int*) malloc(sizeof(int));
     temp = PipeInit(pipe_holder);
 
 
     pid = Fork();
-    TracePrintf(1, "fuckerrr 2\n");
     if(pid == 0){
         TracePrintf(1, "I am the child and I will pause for a bit...\n");
         Delay(6);
@@ -125,7 +123,6 @@ void main(void)
         TracePrintf(1, "I am child 1 and I will try to write to the pipe!...\n");
         char* buf = "child 1 writing!\n";
         int len = PipeWrite(*pipe_holder, buf, strlen(buf) + 1);
-        TracePrintf(1, "fuck num bytes written by child 1: %d", len);
         Exit(0);
     }
         int pid_2 = Fork();
@@ -133,7 +130,6 @@ void main(void)
         TracePrintf(1, "I am child 2 and I will try to write to the pipe!...\n");
         char* buf = "child 2 writing!\n";
         int len = PipeWrite(*pipe_holder, buf, strlen(buf) + 1);
-        TracePrintf(1, "fuck num bytes written by child 2: %d", len);
         Exit(0);
         }
         TracePrintf(1, "I am the parent and I am about to read from the pipe wahoo...\n");

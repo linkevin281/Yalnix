@@ -238,7 +238,7 @@ int Y_Exit(int status)
     TracePrintf(1, "SYSCALL: Y_Exit\n");
 
     current_process->is_alive = 0;
-    
+
     // Free all locks
     Node_t *node;
     while ((node = dequeue(current_process->waiters)) != NULL)
@@ -969,8 +969,15 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
     }
     else
     {
+        TracePrintf(1, "Trying to access a locked lock, putting myself PID: %d on the waiting queue\n", pcb->pid);
         enqueue(lock->waiting, pcb);
         runProcess();
+        TracePrintf(1, "I (PID: %d) woke up from waiting for lock %d, acquired lock.\n", pcb->pid, lock->lock_id);
+        lock->is_locked = 1;
+        lock->owner_pcb = pcb;
+        int *lock_id = malloc(sizeof(int));
+        memcpy(lock_id, &lock->lock_id, sizeof(int));
+        enqueue(pcb->owned_locks, lock_id);
         return SUCCESS;
     }
 }
@@ -997,9 +1004,12 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
         TracePrintf(1, "No waiting\n");
         lock->is_locked = 0;
         lock->owner_pcb = NULL;
+        TracePrintf(1, "Trying to match lock id: %d\n", lock->lock_id);
+        TracePrintf(1, "Owned locks size: %d\n", pcb->owned_locks->size);
         int remove = removeFrameNode(pcb->owned_locks, lock->lock_id);
         if (remove == ERROR)
         {
+            TracePrintf(1, "Error removing lock from owned locks\n");
             return ERROR;
         }
         return SUCCESS;
@@ -1008,6 +1018,7 @@ int releaseLock(Lock_t *lock, pcb_t *pcb)
     {
         Node_t *node = dequeue(lock->waiting);
         pcb_t *pcb = (pcb_t *)node->data;
+        TracePrintf(1, "Found a waiter PID: %d, waking them up\n", pcb->pid);
         free(node);
         enqueue(ready_queue, pcb);
         return SUCCESS;

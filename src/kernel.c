@@ -1018,7 +1018,7 @@ int peekMultiPCB(Queue_t *queue, int count)
 // tells us whether we have permissions to read for the full length of buffer
 int is_readable_buffer(char* str, int len){
     for(int i = 0; i < len; i++){
-        unsigned int addr = &(str[i]);
+        unsigned int addr = (unsigned int) &(str[i]);
         // if address is in kernel-land, we cannot read it
         if(addr < VMEM_0_LIMIT){
             return 0;
@@ -1041,7 +1041,7 @@ int is_readable_buffer(char* str, int len){
 // tells us whether we have permissions to write for the full length of buffer
 int is_writable_buffer(char* str, int len){
     for(int i = 0; i < len; i++){
-        unsigned int addr = &(str[i]);
+        unsigned int addr = (unsigned int) &(str[i]);
         // if address is in kernel-land, we cannot read it
         if(addr < VMEM_0_LIMIT){
             return 0;
@@ -1065,7 +1065,7 @@ int is_writable_buffer(char* str, int len){
 int is_readable_string(char* str){
     int len = strlen(str) + 1;
     for(int i = 0; i < len; i++){
-        unsigned int addr = &(str[i]);
+        unsigned int addr = (unsigned int) &(str[i]);
         // if address is in kernel-land, we cannot read it
         if(addr < VMEM_0_LIMIT){
             return 0;

@@ -151,7 +151,7 @@ int Y_Fork()
 int Y_Exec(char *filename, char *argv[])
 {
     TracePrintf(1, "SYSCALL: Y_Exec\n");
-    if(!is_readable_string(filename) || !is_readable_buffer(argv, MAX_ARG_LEN)){
+    if(is_readable_string(filename) == 0 || is_readable_buffer(argv, MAX_ARG_LEN) == 0){
         TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
         return ERROR;
     }

@@ -1007,7 +1007,7 @@ int Y_CvarBroadcast(int cvar_id)
 {
     TracePrintf(1, "SYSCALL: Y_CvarBroadcast\n");
     int scaled_cvar_id = cvar_id - MAX_PIPES - NUM_LOCKS;
-    if (cvar_id >= NUM_CVARS || cvar_id < 0)
+    if (scaled_cvar_id >= NUM_CVARS || scaled_cvar_id < 0)
     {
         return ERROR;
     }
@@ -1271,10 +1271,12 @@ int cSignal(Cvar_t *cvar, pcb_t *caller)
  */
 int cBroadcast(Cvar_t *cvar, pcb_t *caller)
 {
+    TracePrintf(1, "Size of waiting queue: %d\n", cvar->waiting->size);
     while (cvar->waiting->size > 0)
     {
         Node_t *node = dequeue(cvar->waiting);
         pcb_t *pcb = (pcb_t *)node->data;
+        TracePrintf(1, "Found pid %d in the waiting queue\n", pcb->pid);
         free(node);
         enqueue(ready_queue, pcb);
     }

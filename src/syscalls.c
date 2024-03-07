@@ -234,8 +234,10 @@ int Y_Exit(int status)
      */
 
     TracePrintf(1, "SYSCALL: Y_Exit\n");
+
     // if current process is init process, halt the system
-    if(current_process == init_process) Halt();
+    if (current_process == init_process)
+        Halt();
     TracePrintf(1, "In exit, my pid is %d, my name is %s\n", current_process->pid, current_process->name);
     current_process->is_alive = 0;
 
@@ -249,11 +251,12 @@ int Y_Exit(int status)
         enqueue(empty_locks, lock);
     }
 
-     TracePrintf(1, "in exit syscall, point 3\n");
+    TracePrintf(1, "in exit syscall, point 3\n");
     // add to queue of zombies for parent
-    if(current_process->parent != NULL){
-    enqueue(current_process->parent->zombies, current_process);
-    TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
+    if (current_process->parent != NULL)
+    {
+        enqueue(current_process->parent->zombies, current_process);
+        TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
     }
 
     TracePrintf(1, "in exit syscall, point 4\n");
@@ -306,10 +309,11 @@ int Y_Exit(int status)
     }
 
     // tell children they've been orphaned
-    Queue_t* kids = current_process->children;
-    while(getSize(kids) > 0){
-        Node_t* curr = dequeue(kids);
-        pcb_t* curr_pcb = curr->data;
+    Queue_t *kids = current_process->children;
+    while (getSize(kids) > 0)
+    {
+        Node_t *curr = dequeue(kids);
+        pcb_t *curr_pcb = curr->data;
         curr_pcb->parent = NULL;
     }
     deleteQueue(current_process->children);
@@ -345,12 +349,39 @@ int Y_Exit(int status)
         }
     }
 
-    if(current_process->parent == NULL){
+    if (current_process->parent == NULL)
+    {
         free(current_process);
     }
 
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_KSTACK);
 
+    // Section 3.4
+    switch (status)
+    {
+    case ILLEGAL_INSTRUCTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Illegal instruction. PID: %d\n", current_process->pid);
+        break;
+    case ILLEGAL_MEM_ADDR:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Illegal memory address. Invalid permissions, address is not in userland, or address is too close to heap. PID: %d\n", current_process->pid);
+        break;
+    case EXECPTION_OUT_OF_MEM:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Out of memory. PID: %d\n", current_process->pid);
+        break;
+    case FLOATING_POINT_EXCEPTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "Floating point exception. PID: %d\n", current_process->pid);
+        break;
+    case GENERAL_EXCEPTION:
+        current_process->exit_status = ERROR;
+        TracePrintf(0, "General exception. PID: %d\n", current_process->pid);
+        break;
+    default:
+        break;
+    }
     // no further scheduling logic needed, we can run the next process
     runProcess();
 }
@@ -423,7 +454,7 @@ int Y_Getpid()
      * Using curr_process variable in kernel, get the pcb of the current process
      * Return the pid of the current process from this pcb
      */
-TracePrintf(1, "SYSCALL: Y_Getpid\n");
+    TracePrintf(1, "SYSCALL: Y_Getpid\n");
     return current_process->pid;
 }
 
@@ -1026,7 +1057,6 @@ int Y_Reclaim(int id)
         memcpy(cvar_id, &id, sizeof(int));
         enqueue(empty_cvars, cvar_id);
     }
-
 }
 
 int Y_Custom0(void)

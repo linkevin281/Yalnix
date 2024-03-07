@@ -632,7 +632,6 @@ pcb_t *createPCB(char *name)
     pcb->exit_status = 0;
     pcb->children = createQueue();
     pcb->zombies = createQueue();
-    pcb->waiters = createQueue();
     pcb->pipes = createQueue();
     pcb->brk = 0;
     pcb->is_alive = 1;

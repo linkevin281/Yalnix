@@ -34,7 +34,6 @@ typedef struct pcb
     int delayed_until; // time this pcb is delayed until
     Queue_t *children;
     Queue_t *zombies;
-    Queue_t * waiters; //to store pointers to pcbs of processes waiting on this one
     Queue_t* pipes; //to store pointers to all pipes this process reads or writes on
 
     UserContext user_c;

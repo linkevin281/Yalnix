@@ -207,7 +207,6 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     empty_pipes = createQueue();
 
     // Set up pipes
-    // TODO: potentially optimize this
     for (int i = 0; i < MAX_PIPES; i++)
     {
         pipes[i].id = i;

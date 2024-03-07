@@ -232,7 +232,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     for (int i = 0; i < NUM_LOCKS; i++)
     {
         Lock_t *lock = (Lock_t *)malloc(sizeof(Lock_t));
-        lock->lock_id = i;
+        lock->lock_id = i + MAX_PIPES;
         lock->owner_pcb = NULL;
         lock->is_locked = 0;
         lock->waiting = createQueue();
@@ -242,7 +242,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size,
     for (int i = 0; i < NUM_CVARS; i++)
     {
         Cvar_t *cvar = (Cvar_t *)malloc(sizeof(Cvar_t));
-        cvar->cvar_id = i;
+        cvar->cvar_id = i + MAX_PIPES + NUM_LOCKS;
         cvar->waiting = createQueue();
         enqueue(empty_cvars, cvar);
         cvars[i] = *cvar;

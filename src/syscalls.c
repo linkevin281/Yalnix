@@ -877,11 +877,12 @@ int Y_LockInit(int *lock_idp)
 int Y_Acquire(int lock_id)
 {
     TracePrintf(1, "SYSCALL: Y_Acquire\n");
-    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    int scaled_lock_id = lock_id - MAX_PIPES;
+    if (scaled_lock_id >= NUM_LOCKS || scaled_lock_id < 0)
     {
         return ERROR;
     }
-    return acquireLock(&locks[lock_id], current_process);
+    return acquireLock(&locks[scaled_lock_id], current_process);
 }
 
 /**
@@ -893,11 +894,12 @@ int Y_Release(int lock_id)
 {
     TracePrintf(1, "SYSCALL: Y_Release\n");
     TracePrintf(1, "Lock id: %d\n", lock_id);
-    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    int scaled_lock_id = lock_id - MAX_PIPES;
+    if (scaled_lock_id >= NUM_LOCKS || scaled_lock_id < 0)
     {
         return ERROR;
     }
-    return releaseLock(&locks[lock_id], current_process);
+    return releaseLock(&locks[scaled_lock_id], current_process);
 }
 
 /**
@@ -927,12 +929,13 @@ int Y_CvarInit(int *cvar_idp)
  */
 int Y_CvarSignal(int cvar_id)
 {
+    int scaled_cvar_id = cvar_id - MAX_PIPES - NUM_LOCKS;
     TracePrintf(1, "SYSCALL: Y_CvarSignal\n");
     if (cvar_id >= NUM_CVARS || cvar_id < 0)
     {
         return ERROR;
     }
-    return cSignal(&cvars[cvar_id], current_process);
+    return cSignal(&cvars[scaled_cvar_id], current_process);
 }
 
 /**
@@ -943,11 +946,12 @@ int Y_CvarSignal(int cvar_id)
 int Y_CvarBroadcast(int cvar_id)
 {
     TracePrintf(1, "SYSCALL: Y_CvarBroadcast\n");
+    int scaled_cvar_id = cvar_id - MAX_PIPES - NUM_LOCKS;
     if (cvar_id >= NUM_CVARS || cvar_id < 0)
     {
         return ERROR;
     }
-    return cBroadcast(&cvars[cvar_id], current_process);
+    return cBroadcast(&cvars[scaled_cvar_id], current_process);
 }
 
 /**
@@ -959,16 +963,18 @@ int Y_CvarBroadcast(int cvar_id)
  */
 int Y_CvarWait(int cvar_id, int lock_id)
 {
+    int scaled_cvar_id = cvar_id - MAX_PIPES - NUM_LOCKS;
     TracePrintf(1, "SYSCALL: Y_Cvarwait\n");
-    if (cvar_id >= NUM_CVARS || cvar_id < 0)
+    if (scaled_cvar_id >= NUM_CVARS || scaled_cvar_id < 0)
     {
         return ERROR;
     }
-    if (lock_id >= NUM_LOCKS || lock_id < 0)
+    int scaled_lock_id = lock_id - MAX_PIPES;
+    if (scaled_lock_id >= NUM_LOCKS || scaled_lock_id < 0)
     {
         return ERROR;
     }
-    return cWait(&cvars[cvar_id], &locks[lock_id], current_process, &current_process->user_c);
+    return cWait(&cvars[scaled_cvar_id], &locks[scaled_lock_id], current_process, &current_process->user_c);
 }
 
 int Y_Reclaim(int id)
@@ -981,6 +987,36 @@ int Y_Reclaim(int id)
      * 5. Add id to free ____ IDs queue
      * 6. If anythign went wrong, ERROR or return 0 on success
      */
+    TracePrintf(1, "SYSCALL: Y_Reclaim\n");
+    if (id < 0 || id > MAX_PIPES + NUM_LOCKS + NUM_CVARS)
+    {
+        return ERROR;
+    }
+    if (id < MAX_PIPES)
+    {
+        // TODO CARTER
+    }
+    else if (id < MAX_PIPES + NUM_LOCKS)
+    {
+        Lock_t *lock = &locks[id - MAX_PIPES];
+        lock->is_locked = 0;
+        lock->owner_pcb = NULL;
+        deleteQueue(lock->waiting);
+        lock->waiting = createQueue();
+        int *lock_id = malloc(sizeof(int));
+        memcpy(lock_id, &id, sizeof(int));
+        enqueue(empty_locks, lock_id);
+    }
+    else
+    {
+        Cvar_t *cvar = &cvars[id - MAX_PIPES - NUM_LOCKS];
+        deleteQueue(cvar->waiting);
+        cvar->waiting = createQueue();
+        int *cvar_id = malloc(sizeof(int));
+        memcpy(cvar_id, &id, sizeof(int));
+        enqueue(empty_cvars, cvar_id);
+    }
+
 }
 
 int Y_Custom0(void)
@@ -989,6 +1025,12 @@ int Y_Custom0(void)
     peekMultiPCB(ready_queue, 10);
     return 0;
 }
+
+/**
+ * * * * * * * * * * *
+ * HELPER FUNCTIONS *
+ * * * * * * * * * *
+ */
 
 /**
  * Creates a lock with the given id. Defined as index in arr.

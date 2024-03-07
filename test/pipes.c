@@ -142,58 +142,65 @@ void main(void)
         TracePrintf(1, "I am the parent, and after simultaneous writes from my children, I read: %s\n", parent_reader);
 
 
-
+    free(pipe_holder);
     // multiple processes attempting to read from same pipe
     pipe_holder = (int*) malloc(sizeof(int));
     temp = PipeInit(pipe_holder);
+    TracePrintf(1, "BOUTA use pipe number: %d\n", *pipe_holder);
 
 
     pid = Fork();
 
     if(pid == 0){
-        Delay(4);
-        char buf [5];
+        char* buf = malloc(5);
         TracePrintf(1, "Child 1 gonna try to read from pipe..\n");
         int len = PipeRead(*pipe_holder, buf, 5);
-        TracePrintf(1, "In simultaneous read, got: %s", buf);
+        TracePrintf(1, "In simultaneous read, child 1 got: %s after reading %d bytes\n", buf, len);
+        free(buf);
         Exit(0);
     }
         pid_2 = Fork();
         if(pid_2 == 0){
-        Delay(4);
-        char buf [5];
+        char* buf = malloc(5);
         TracePrintf(1, "Child 2 gonna try to read from pipe..\n");
         int len = PipeRead(*pipe_holder, buf, 5);
-        TracePrintf(1, "In simultaneous read, got: %s", buf);
+        TracePrintf(1, "In simultaneous read, child 2 got: %s after reading %d bytes", buf, len);
+        free(buf);
         Exit(0);
         }
-        TracePrintf(1, "I am the parent and I am about to read from the pipe wahoo...\n");
+        TracePrintf(1, "I am the parent and I am about to write to the pipe wahoo...\n");
         char* parent_str_yay = "doge";
         PipeWrite(*pipe_holder, parent_str_yay, strlen(parent_str_yay) + 1);
         TracePrintf(1, "I am the parent, and just wrote to the pipe so my children can try reading...\n");
-        Delay(12);
+        Delay(20);
         TracePrintf(1, "I am the parent, and I will now write to the pipe so my second waiting child can be done waiting...\n");
         char* parent_str_yiy = "boge";
         int len = PipeWrite(*pipe_holder, parent_str_yiy, 5);
-
-
-
-        // testing reuse of pipes
-        char* to_add = "a";
-        for(int i = 0; i < 120; i++){
-            int* pipe_holder_1 = (int*) malloc(sizeof(int));
-            int temp = PipeInit(pipe_holder_1);
-            char* str = malloc(2);
-            TracePrintf(1, "In iteration %d\n", i);
-            memcpy(str, to_add, 2);
-            int pid = Fork();
-            if(pid == 0){
-                PipeWrite(*pipe_holder_1, str, strlen(str) + 1);
-                free(str);
-                Exit(0);
-            }
-            char holder[2];
-            PipeRead(*pipe_holder_1, holder, 2);
-            TracePrintf(1, "On iteration %d, just did my read\n", i);
+        int* placeholder = malloc(sizeof(int));
+        // because we've forked 8 times, collected 4 zombies
+        for(int i = 0; i < 4; i++){
+            Wait(placeholder);
+            TracePrintf(1, "FOR i of %d we are done waiting\n", i);
         }
+        free(placeholder);
+
+
+        // // testing reuse of pipes
+        // char* to_add = "a";
+        // for(int i = 0; i < 120; i++){
+        //     int* pipe_holder_1 = (int*) malloc(sizeof(int));
+        //     int temp = PipeInit(pipe_holder_1);
+        //     char* str = malloc(2);
+        //     TracePrintf(1, "In iteration %d\n", i);
+        //     memcpy(str, to_add, 2);
+        //     int pid = Fork();
+        //     if(pid == 0){
+        //         PipeWrite(*pipe_holder_1, str, strlen(str) + 1);
+        //         free(str);
+        //         Exit(0);
+        //     }
+        //     char holder[2];
+        //     PipeRead(*pipe_holder_1, holder, 2);
+        //     TracePrintf(1, "On iteration %d, just did my read\n", i);
+        // }
 }

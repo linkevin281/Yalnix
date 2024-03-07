@@ -263,6 +263,7 @@ int Y_Exit(int status)
     TracePrintf(1, "in exit syscall, point 3\n");
     // add to queue of zombies for parent
     enqueue(current_process->parent->zombies, current_process);
+    TracePrintf(1, "Just added myself to my parent's zombies queue...\n");
 
     TracePrintf(1, "in exit syscall, point 4\n");
     current_process->exit_status = status;
@@ -299,6 +300,7 @@ int Y_Exit(int status)
         (curr_pipe->writer == current_process && curr_pipe->reader == idle_process)){
             // clean the relevant pipe
             // add relevant pipe to empty pipes queue
+            TracePrintf(1, "KILLING pipe %d", curr_pipe->id);
             int i = curr_pipe->id;
             pipes[i].id = i;
             pipes[i].read_pos = 0;
@@ -323,6 +325,7 @@ int Y_Exit(int status)
         else if (curr_pipe->writer == current_process){
             curr_pipe->writer = idle_process;
         }
+        free(curr_pipe_node);
     }
     // no further scheduling logic needed, we can run the next process
     runProcess();
@@ -352,6 +355,7 @@ int Y_Wait(int *status)
         if(status != NULL){
             memcpy(status, &(child->exit_status), sizeof(int));
         }
+        free(child_container);
         return child->pid;
     }
 
@@ -361,7 +365,9 @@ int Y_Wait(int *status)
 
     TracePrintf(1, "WAIT about to run process\n");
     // this will add the current process to the waiting queue
-    runProcess();
+    while(getSize(current_process->zombies) < 1){
+        runProcess();
+    }
     TracePrintf(1, "WAIT run process complete!\n");
 
     // at this point, there will be a zombie
@@ -375,6 +381,7 @@ int Y_Wait(int *status)
         memcpy(status, &(child->exit_status), sizeof(int));
     }
     TracePrintf(1, "the child is done let's gooooo!\n");
+    free(child_container);
     return child->pid;
 }
 
@@ -512,7 +519,7 @@ int Y_Ttyread(int tty_id, void *buf, int len)
             memcpy(buf, curr_node->data, curr_len);
             free(curr_node->data);
             bytes_read+= curr_len;
-            dequeue(input_queue);
+            free(dequeue(input_queue));
             curr_node = input_queue->tail->prev;
         }
         else if (curr_len + bytes_read > len){
@@ -523,11 +530,11 @@ int Y_Ttyread(int tty_id, void *buf, int len)
         else{
             memcpy(buf, curr_node->data, curr_len);
             free(curr_node->data);
-            dequeue(input_queue);
+            free(dequeue(input_queue));
         }
     }
 
-    dequeue(want_to_read_from[tty_id]);
+    free(dequeue(want_to_read_from[tty_id]));
     return bytes_read;
 }
 
@@ -577,7 +584,7 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
         runProcess();
     }
 
-    dequeue(want_to_write_to[tty_id]);
+    free(dequeue(want_to_write_to[tty_id]));
     free(kernel_buff);
 
     return bytes_read == len ? len : ERROR;
@@ -594,7 +601,10 @@ int Y_Pipeinit(int *pipe_idp)
      */
 
     // get next available pipe
-    int available_pipe_id = *((int*) dequeue(empty_pipes)->data);
+    Node_t* pipe_holder = dequeue(empty_pipes);
+    int available_pipe_id = *((int*) pipe_holder->data);
+    free(pipe_holder->data);
+    free(pipe_holder);
     memcpy(pipe_idp, &available_pipe_id, sizeof(int));
     pipes[available_pipe_id].exists = 1;
     return available_pipe_id;
@@ -611,20 +621,25 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 6.   Increment read_pos by len
      * 7.   Return len
      */
+    TracePrintf(1, "1 dick\n");
     Pipe_t* curr_pipe = &(pipes[pipe_id]);
     curr_pipe->reader = current_process;
-    enqueue(current_process->pipes, curr_pipe);
-
+    TracePrintf(1, "2 dick\n");
+    enqueue(current_process->pipes, curr_pipe); 
+    TracePrintf(1, "3 dick\n");
     char* buf_holder = (char*) buf;
     if(curr_pipe->exists == 0){
+        TracePrintf(1, "WOAH\n");
         return ERROR;
     }
-
+    TracePrintf(1, "4 dick\n");
     if(len > PIPE_BUFFER_LEN){
+        TracePrintf(1, "WOAH2\n");
         return ERROR;
     }
     int bytes_to_read = len > curr_pipe->num_bytes_in_pipe ? curr_pipe->num_bytes_in_pipe : len;
-
+    TracePrintf(1, "5 dick\n");
+    TracePrintf(1, "bytes to read: %d\n", bytes_to_read);
     Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
 
     enqueue(pipe_reading_queue, current_process);
@@ -665,12 +680,14 @@ int Y_Piperead(int pipe_id, void *buf, int len)
     if(getSize(pipe_reading_queue) > 0){
         Node_t* curr_node = dequeue(pipe_reading_queue);
         enqueue(ready_queue, (pcb_t*) curr_node->data);
+        free(curr_node);
     }
 
     Queue_t* pipe_writing_queue = want_to_write_pipe[pipe_id];
     if(getSize(pipe_writing_queue) > 0){
         Node_t* curr_node = dequeue(pipe_writing_queue);
         enqueue(ready_queue, (pcb_t*) curr_node->data);
+        free(curr_node);
     }
 
 
@@ -697,7 +714,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
     TracePrintf(1, "1 fucker\n");
     curr_pipe->writer = current_process;
     TracePrintf(1, "2 fucker\n");
-    TracePrintf(1, "Size of pipes queue for current process: %d", getSize(current_process->pipes));
+    TracePrintf(1, "Size of pipes queue for current process: %d\n", getSize(current_process->pipes));
     enqueue(current_process->pipes, curr_pipe);
     TracePrintf(1, "3 fucker\n");
     char* buf_str = (char*) buf;
@@ -737,12 +754,13 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
     }
 
     can_interact_with_pipe[pipe_id] = 1;
-    dequeue(pipe_writing_queue);
+    free(dequeue(pipe_writing_queue));
 
     // if more processes want to read or write from the pipe, put them in the ready queue
     if(getSize(pipe_writing_queue) > 0){
         Node_t* curr_node = dequeue(pipe_writing_queue);
         enqueue(ready_queue, (pcb_t*) curr_node->data);
+        free(curr_node);
     }
 
     Queue_t* pipe_reading_queue = want_to_read_pipe[pipe_id];
@@ -750,6 +768,7 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
     if(getSize(pipe_reading_queue) > 0){
         Node_t* curr_node = dequeue(pipe_reading_queue);
         enqueue(ready_queue, (pcb_t*) curr_node->data);
+        free(curr_node);
     }
 
     return pos;

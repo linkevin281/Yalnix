@@ -106,6 +106,7 @@ void TrapClock(UserContext *user_context)
             Node_t *delayed_node = dequeue(delay_queue);
             enqueue(ready_queue, delayed_node->data);
             delayed = (pcb_t *)(peekTail(delay_queue)->data);
+            free(delayed_node);
         }
     }
     // if we have a process other than idle to run, run it

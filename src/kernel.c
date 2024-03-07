@@ -371,8 +371,12 @@ KernelContext *KCCopy(KernelContext *kc_in, void *new_pcb_p, void *not_used)
 int allocateFrame()
 {
     if (getSize(empty_frames) > 0)
-    {
-        return *(int *)dequeue(empty_frames)->data;
+    {   
+        Node_t* to_return = dequeue(empty_frames)->data;
+        int ret = *(int *) to_return;
+        free(to_return->data);
+        free(to_return);
+        return ret;
     }
     else
     {
@@ -420,7 +424,15 @@ int runProcess()
     TracePrintf(1, "Current Process; Name: %s { %d }\n", current_process->name, current_process->pid);
 
     // switch into next process on ready queue or idle process
-    next = (isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)) ? idle_process : (pcb_t *)dequeue(ready_queue)->data;
+    if(isEmpty(ready_queue) || (peekTail(ready_queue)->data == current_process && current_process != idle_process)){
+        next = idle_process;
+    }
+    else{
+        Node_t* pcb_node = dequeue(ready_queue);
+        pcb_t* curr = (pcb_t*) pcb_node->data;
+        free(pcb_node);
+        next = curr;
+    }
 
     TracePrintf(1, "CALLING KCSWITCH; PID cur: %d; Name cur: %s; PID next: %d; Name next: %s\n", current_process->pid, current_process->name, next->pid, next->name);
 

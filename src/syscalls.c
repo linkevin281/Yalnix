@@ -151,6 +151,10 @@ int Y_Fork()
 int Y_Exec(char *filename, char *argv[])
 {
     TracePrintf(1, "SYSCALL: Y_Exec\n");
+    if(is_readable_string(filename) == 0 || is_readable_buffer(*argv, MAX_ARG_LEN) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     char **args_copy = malloc(sizeof(char *) * MAX_ARGS);
     char *name_copy = malloc(sizeof(char) * MAX_ARG_LEN);
     strncpy(name_copy, filename, MAX_ARG_LEN);
@@ -405,6 +409,10 @@ int Y_Wait(int *status)
      */
 
     // return error if no dead children
+    if(is_writable_buffer((char*) status, 1) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     if (getSize(current_process->children) == 0 && getSize(current_process->zombies) == 0)
     {
         TracePrintf(1, "WAIT error\n");
@@ -566,6 +574,10 @@ int Y_Delay(int num_ticks)
 
 int Y_Ttyread(int tty_id, void *buf, int len)
 {
+    if(is_writable_buffer((char*) buf, len) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     /**
      * While there is >= 1 node in the relevant user's terminal input buffer
      *     read the bytes from that node into buf, track how many bytes were read
@@ -630,6 +642,11 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
      *      wait for can_write_to_terminal to be true for this terminal
      */
 
+    if(is_readable_buffer(buf, len) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
+
     enqueue(want_to_write_to[tty_id], current_process);
 
     // allocate space in kernel to store the string, so it doesn't get lost when we switch processes
@@ -678,6 +695,10 @@ int Y_Ttywrite(int tty_id, void *buf, int len)
 
 int Y_Pipeinit(int *pipe_idp)
 {
+    if(is_writable_buffer((char*) pipe_idp, 1) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     TracePrintf(1, "SYSCALL: Y_Pipeinit\n");
     /**
      * 1. Check if pipe_idp is valid, if not, ERROR
@@ -714,6 +735,10 @@ int Y_Piperead(int pipe_id, void *buf, int len)
      * 6.   Increment read_pos by len
      * 7.   Return len
      */
+    if(is_writable_buffer(buf, len) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     TracePrintf(1, "1 dick\n");
     Pipe_t *curr_pipe = &(pipes[pipe_id]);
     curr_pipe->reader = current_process;
@@ -809,6 +834,10 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
      * 7. Return len
      *
      */
+    if(is_readable_buffer(buf, len) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     TracePrintf(1, "0 fucker\n");
     Pipe_t *curr_pipe = &(pipes[pipe_id]);
     TracePrintf(1, "1 fucker\n");
@@ -889,6 +918,10 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
 int Y_LockInit(int *lock_idp)
 {
     TracePrintf(1, "SYSCALL: Y_LockInit\n");
+    if(is_writable_buffer((char*) lock_idp, 1) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     TracePrintf(1, "Queue size: %d\n", empty_locks->size);
     Node_t *lock_node = dequeue(empty_locks);
     TracePrintf(1, "Lock node: %p\n", lock_node);
@@ -945,6 +978,10 @@ int Y_Release(int lock_id)
  */
 int Y_CvarInit(int *cvar_idp)
 {
+    if(is_writable_buffer((char*) cvar_idp, 1) == 0){
+        TracePrintf(1, "ERROR: Invalid input, you lack the correct permissions to access this memory.\n");
+        return ERROR;
+    }
     TracePrintf(1, "SYSCALL: Y_CvarInit\n");
     Node_t *cvar_node = dequeue(empty_cvars);
     if (cvar_node == NULL)

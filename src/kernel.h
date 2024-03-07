@@ -26,3 +26,6 @@ int LoadProgram(char *name, char *args[], pcb_t *pcb);
 int enqueueDelayQueue(Queue_t *queue, pcb_t* pcb);
 int removePCBNode(Queue_t *queue, pcb_t *pcb);
 int peekMultiPCB(Queue_t *queue, int count);
+int is_readable_buffer(char* str, int len);
+int is_writable_buffer(char* str, int len);
+int is_readable_string(char* str);

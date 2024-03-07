@@ -75,7 +75,7 @@ void TrapKernel(UserContext *user_context)
         break;
     case YALNIX_LOCK_INIT:
         TracePrintf(1, "TRAP LOCK_INIT REG; 0: %d\n", (int)user_context->regs[0]);
-        r_value = Y_LockInit((int)user_context->regs[0]);
+        r_value = Y_LockInit((int*)user_context->regs[0]);
         break;
     case YALNIX_LOCK_ACQUIRE:
         TracePrintf(1, "TRAP LOCK_ACQUIRE REG; 0: %d\n", (int)user_context->regs[0]);
@@ -87,7 +87,7 @@ void TrapKernel(UserContext *user_context)
         break;
     case YALNIX_CVAR_INIT:
         TracePrintf(1, "TRAP CVAR_INIT REG; 0: %d\n", (int)user_context->regs[0]);
-        r_value = Y_CvarInit((int)user_context->regs[0]);
+        r_value = Y_CvarInit((int*)user_context->regs[0]);
         break;
     case YALNIX_CVAR_SIGNAL:
         TracePrintf(1, "TRAP CVAR_SIGNAL REG; 0: %d\n", (int)user_context->regs[0]);

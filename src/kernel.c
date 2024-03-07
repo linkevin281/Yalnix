@@ -1037,3 +1037,74 @@ int peekMultiPCB(Queue_t *queue, int count)
         curr = curr->next;
     }
 }
+
+// tells us whether we have permissions to read for the full length of buffer
+int is_readable_buffer(char* str, int len){
+    for(int i = 0; i < len; i++){
+        unsigned int addr = (unsigned int) &(str[i]);
+        // if address is in kernel-land, we cannot read it
+        if(addr < VMEM_0_LIMIT){
+            return 0;
+        }
+        if(addr > VMEM_1_LIMIT){
+            return 0;
+        }
+        int curr_page = DOWN_TO_PAGE(addr) >> PAGESHIFT;
+        pte_t curr_pte = current_process->userland_pt[curr_page - MAX_PT_LEN];
+        if(curr_pte.prot & PROT_READ){
+            continue;
+        }
+        else{
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// tells us whether we have permissions to write for the full length of buffer
+int is_writable_buffer(char* str, int len){
+    for(int i = 0; i < len; i++){
+        unsigned int addr = (unsigned int) &(str[i]);
+        // if address is in kernel-land, we cannot read it
+        if(addr < VMEM_0_LIMIT){
+            return 0;
+        }
+        if(addr > VMEM_1_LIMIT){
+            return 0;
+        }
+        int curr_page = DOWN_TO_PAGE(addr) >> PAGESHIFT;
+        pte_t curr_pte = current_process->userland_pt[curr_page - MAX_PT_LEN];
+        if(curr_pte.prot & PROT_WRITE){
+            continue;
+        }
+        else{
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// tells us whether we have permissions to read the given string
+int is_readable_string(char* str){
+    int len = strlen(str) + 1;
+    for(int i = 0; i < len; i++){
+        unsigned int addr = (unsigned int) &(str[i]);
+        // if address is in kernel-land, we cannot read it
+        if(addr < VMEM_0_LIMIT){
+            return 0;
+        }
+        if(addr > VMEM_1_LIMIT){
+            return 0;
+        }
+        int curr_page = DOWN_TO_PAGE(addr) >> PAGESHIFT;
+        pte_t curr_pte = current_process->userland_pt[curr_page - MAX_PT_LEN];
+        if(curr_pte.prot & PROT_READ){
+            continue;
+        }
+        else{
+            return 0;
+        }
+    }
+    return 1;
+}
+

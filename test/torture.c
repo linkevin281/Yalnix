@@ -68,7 +68,6 @@ void MallocMonster(void)
         npg = rand() % 21;
         TtyPrintf(2, "MallocMonster: malloc'ing %d pages\n", npg);
         TracePrintf(1, "MallocMonster: malloc'ing %d pages\n", npg);
-        TracePrintf(1, "I think the BRK is at %p\n", sbrk(0));
         ptr = malloc(PAGESIZE * npg);
         Delay(3);
         TtyPrintf(2, "MallocMonster: freeing the stuff I just malloc'ed\n");

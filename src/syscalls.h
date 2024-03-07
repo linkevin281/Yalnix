@@ -36,6 +36,7 @@ int Y_CvarSignal(int cvar_id);
 int Y_CvarBroadcast(int cvar_id);
 int Y_Cvarwait(int cvar_id, int lock_id);
 int Y_Reclaim(int id);
+int Y_Custom0(void);
 
 /**
  * Creates a lock with the given id. Defined as index in arr.

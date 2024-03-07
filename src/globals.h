@@ -45,6 +45,7 @@ typedef struct pcb
     pte_t userland_pt[MAX_PT_LEN];
     pte_t kernel_stack_pt[KERNEL_STACK_MAXSIZE / PAGESIZE];
     int is_alive; // 0 if dead, 1 if alive
+    Queue_t *inited_locks;
     Queue_t *owned_locks;
 } pcb_t;
 

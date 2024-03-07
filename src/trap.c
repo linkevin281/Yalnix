@@ -80,6 +80,10 @@ void TrapKernel(UserContext *user_context)
         TracePrintf(1, "TRAP LOCK_RELEASE REG; 0: %d\n", (int)user_context->regs[0]);
         r_value = Y_Release((int)user_context->regs[0]);
         break;
+    case YALNIX_CUSTOM_0:
+        TracePrintf(1, "TRAP CUSTOM_0 REG; 0: %d, 1: %d, 2: %d, 3: %d, 4: %d\n", (int)user_context->regs[0], (int)user_context->regs[1], (int)user_context->regs[2], (int)user_context->regs[3], (int)user_context->regs[4]);
+        r_value = Y_Custom0();
+        break;
     default:
         break;
     }

@@ -1,4 +1,5 @@
 #include <yuser.h>
+#include <stdio.h>
 
 #define SUCCESS 0
 #define FAILURE -1
@@ -29,11 +30,12 @@ int lock_release(int lock_id)
         return SUCCESS;
     }
 }
+
 int lock_init()
 {
     int *lock_id = malloc(sizeof(int));
     LockInit(lock_id);
-    TracePrintf(1, "Lock id: %d initalize\n", *lock_id);
+    TracePrintf(1, "Lock id: %d initalized\n", *lock_id);
     return *lock_id;
 }
 
@@ -86,6 +88,11 @@ void test_mutual_exclusion()
 {
     int lock_id = lock_init();
     int *arr = malloc(sizeof(int) * 10);
+    TracePrintf(1, "STARTBRK: %p\n", sbrk(0));
+    for (int i = 0; i < 10; i++)
+    {
+        TracePrintf(1, "START: Mem location of arr[%d]: %p\n", i, &arr[i]);
+    }
 
     int main_pid = Fork();
     if (main_pid == 0)
@@ -110,10 +117,15 @@ void test_mutual_exclusion()
                 arr[i] = 0;
             }
             lock_release(lock_id);
+            for (int i = 0; i < 10; i++)
+            {
+                TracePrintf(1, "END: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
+            }
             Exit(SUCCESS);
         }
         else if (pid > 0)
         {
+
             lock_acquire(lock_id);
             TracePrintf(1, "Looks like I (parent | pid: %d) acquired the lock first. Haha.\n", GetPid());
             TracePrintf(1, "I'm going to write half the array\n");
@@ -141,15 +153,18 @@ void test_mutual_exclusion()
         if (status == SUCCESS)
         {
             int first_element = arr[0];
+            TracePrintf(1, "Mem location of arr: %p\n", arr);
             for (int i = 0; i < 10; i++)
             {
-                TracePrintf(1, "arr[%d]: %d\n", i, arr[i]);
+                TracePrintf(1, "MEM: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
                 if (arr[i] != first_element)
                 {
                     TracePrintf(1, "Array is not consistent, someone wrote to it while the lock was LOCKED\n");
                     Exit(FAILURE);
+                    TracePrintf(1, "I'm going to die now\n");
                 }
             }
+
             if (first_element == 0)
             {
                 TracePrintf(1, "Looks like the child wrote to the array second. Good job!\n");
@@ -169,8 +184,58 @@ void test_mutual_exclusion()
 
 void test_fork_inheritance()
 {
-    
+    int lock_id = lock_init();
+    lock_acquire(lock_id);
+    int pid = Fork();
+    if (pid == -1)
+    {
+        TracePrintf(1, "Happy happy happy. Fork failed\n");
+        Exit(SUCCESS);
+    }
+    Exit(FAILURE);
 }
+
+void test_lock_leaks()
+{
+    int pid = Fork();
+    if (pid == 0)
+    {
+        TracePrintf(1, "I'm the child, greedily consuming all locks now.\n");
+        int lock_id;
+        while ((lock_id = lock_init()) != -1)
+        {
+            continue;
+        }
+        TracePrintf(1, "Looks like I've consumed all the locks (Total: %d) muhahahahaha. I'm pausing.\n", lock_id + 1);
+        Pause();
+        TracePrintf(1, "I'm back (child)! Dying now\n");
+        Exit(SUCCESS);
+    }
+    else if (pid > 0)
+    {
+        TracePrintf(1, "I'm the parent, pausing to let the child consume all the locks\n");
+        Pause();
+        TracePrintf(1, "I'm the parent, trying to consume a lock now!");
+        int lock_id = lock_init();
+        if (lock_id != -1)
+        {
+            TracePrintf(1, "How did I get a lock? I'm a parent! I'm going to die now.\n");
+            Exit(FAILURE);
+        }
+        TracePrintf(1, "Looks like I didn't get a lock. Waiting for the child\n");
+        int status;
+        Wait(&status);
+        TracePrintf(1, "I'm back (parent)! Trying again\n");
+        lock_id = lock_init();
+        if (lock_id == -1)
+        {
+            TracePrintf(1, "Why are there no locks left? I'm going to die now.\n");
+            Exit(FAILURE);
+        }
+        Exit(SUCCESS);
+    }
+}
+
 void run_test(void (*test_func)(), char *test_name)
 {
     int pid = Fork();
@@ -206,4 +271,6 @@ void main(void)
     run_test(test_mutual_exclusion, "Test 3: Mutual Exclusion");
     // What if we fork a process WITH a lock in hand?
     run_test(test_fork_inheritance, "Test 4: Fork Inheritance");
+    // What if a process dies with a lock in hand? Or multiple??
+    run_test(test_lock_leaks, "Test 5: Lock Leaks");
 }

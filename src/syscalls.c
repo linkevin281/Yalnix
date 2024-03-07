@@ -27,6 +27,12 @@ int Y_Fork()
 {
     TracePrintf(1, "SYSCALL: Y_Fork\n");
 
+    // Check if we own any locks
+    if (current_process->owned_locks->size > 0)
+    {
+        return ERROR;
+    }
+
     // Generate Child Name
     char *name = malloc(sizeof(char) * 256);
     strncpy(name, current_process->name, 248);
@@ -220,6 +226,7 @@ int Y_Exit(int status)
 {
     /**
      * 1. Return all of USERLAND to the free_frames queue
+     * 1.1 If there are any locks owned by this process, release them
      * 2. Return all of KERNAL_STACK to the free_frames queue
      * 3. Add this process to the zombie queue of parent if not null (dead)
      * 4. Save exit status in PCB
@@ -231,6 +238,16 @@ int Y_Exit(int status)
     TracePrintf(1, "SYSCALL: Y_Exit\n");
 
     current_process->is_alive = 0;
+    
+    // Free all locks
+    Node_t *node;
+    while ((node = dequeue(current_process->waiters)) != NULL)
+    {
+        Lock_t *lock = (Lock_t *)node->data;
+        releaseLock(lock, current_process);
+        free(node);
+        enqueue(empty_locks, lock);
+    }
 
     // return all of userland to free frames queue
     int frame_to_free;
@@ -818,6 +835,7 @@ int Y_LockInit(int *lock_idp)
     }
     Lock_t *lock = lock_node->data;
     free(lock_node);
+    enqueue(current_process->inited_locks, lock);
     memccpy(lock_idp, &lock->lock_id, sizeof(int), sizeof(int));
     return *lock_idp;
 }
@@ -906,6 +924,11 @@ int Y_Reclaim(int id)
      */
 }
 
+int Y_Custom0(void)
+{
+    return 0;
+}
+
 /**
  * Creates a lock with the given id. Defined as index in arr.
  */
@@ -935,7 +958,7 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
         lock->is_locked = 1;
         lock->owner_pcb = pcb;
         int *lock_id = malloc(sizeof(int));
-        memcpy(lock_id, &lock->lock_id, sizeof(int));   
+        memcpy(lock_id, &lock->lock_id, sizeof(int));
         enqueue(pcb->owned_locks, lock_id);
         return SUCCESS;
     }

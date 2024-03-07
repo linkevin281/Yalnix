@@ -636,6 +636,8 @@ pcb_t *createPCB(char *name)
     pcb->pipes = createQueue();
     pcb->brk = 0;
     pcb->is_alive = 1;
+    pcb->inited_locks = createQueue();
+    pcb->owned_locks = createQueue();
 
     TracePrintf(1, "FUNCTION RETURN: createPCB\n");
     return pcb;

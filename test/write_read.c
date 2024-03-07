@@ -67,9 +67,9 @@ void main(void)
 
 
 
-    // multiple programs trying to read from same terminal
-    char* fork_prompt = "forking. Enter some input here: ";
-    TtyWrite(0, fork_prompt, strlen(fork_prompt) + 1);
+    // // multiple programs trying to read from same terminal
+    // char* fork_prompt = "forking. Enter some input here: ";
+    // TtyWrite(0, fork_prompt, strlen(fork_prompt) + 1);
     int pid = Fork();
     char* buf_5 = malloc(TERMINAL_MAX_LINE);
 
@@ -80,12 +80,25 @@ void main(void)
         TtyWrite(0, buf_5, len);
         Exit(0);
     }
-    else{
-        Delay(15);
-        char* final_text = "Parent exiting!\n";
-        TtyWrite(0, final_text, strlen(final_text) + 1);
+    Delay(15);
+    char* final_text = "Parent exiting!\n";
+    TtyWrite(0, final_text, strlen(final_text) + 1);
+
+    // multiple processes try to write to same terminal
+    int pid_2 = Fork();
+    if(pid_2 == 0){
+        char* info_str = "First forked process writing to terminal!\n";
+        TtyWrite(0, info_str, strlen(info_str) + 1);
         Exit(0);
     }
+    int pid_3 = Fork();
+    if(pid_3 == 0){
+        char* info_str = "Second forked process writing to terminal!\n";
+        TtyWrite(0, info_str, strlen(info_str) + 1);
+        Exit(0);
+    }
+    char* info_str = "Parent process writing to terminal!\n";
+    TtyWrite(0, info_str, strlen(info_str) + 1);
 
 
     

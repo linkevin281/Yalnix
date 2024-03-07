@@ -182,7 +182,7 @@ void main(void)
             Wait(placeholder);
             TracePrintf(1, "FOR i of %d we are done waiting\n", i);
         }
-        free(placeholder);
+        Exit(0);
 
 
         // // testing reuse of pipes

@@ -48,18 +48,6 @@ typedef struct pcb
     Queue_t *owned_locks;
 } pcb_t;
 
-typedef struct Lock {
-    int id;           // index in locks array
-    int owner_pid;
-    Queue_t *waiting;
-} Lock_t;
-
-typedef struct Cvar {
-    int id;           // index in cvars array
-    int owner_pid;
-    Queue_t *waiting;
-} Cvar_t;
-
 typedef struct Pipe {
     int id;                    // index in pipes array
     pcb_t* reader;

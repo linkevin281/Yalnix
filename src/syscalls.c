@@ -114,7 +114,6 @@ int Y_Fork()
     child->delayed_until = current_process->delayed_until;
     // TODO:
     // Copy zombies
-    // Copy waiters
     // Copy brk
 
     // Add to Ready Queue
@@ -226,11 +225,10 @@ int Y_Exit(int status)
 {
     /**
      * 1. Return all of USERLAND to the free_frames queue
-     * 1.1 If there are any locks owned by this process, release them
+     * 1.1 If there are any locks inited by this process, release them
      * 2. Return all of KERNAL_STACK to the free_frames queue
      * 3. Add this process to the zombie queue of parent if not null (dead)
      * 4. Save exit status in PCB
-     * 6. Wake all processes waiting on the current process (in the waiters queue in the pcb), moving them into ready queue in kernal
      * 7. if initial process, HALT
      * 8. Pop next process off the ready queue (or whatever is ready to run - Zephyr said to run "scheduler"), run that
      */
@@ -239,7 +237,7 @@ int Y_Exit(int status)
 
     current_process->is_alive = 0;
 
-    // Move all waiters to ready queue
+    // Free all initalized locks and releaseLock removes them if they are held.
     Node_t *node;
     while ((node = dequeue(current_process->inited_locks)) != NULL)
     {
@@ -963,6 +961,7 @@ int acquireLock(Lock_t *lock, pcb_t *pcb)
         int *lock_id = malloc(sizeof(int));
         memcpy(lock_id, &lock->lock_id, sizeof(int));
         enqueue(pcb->owned_locks, lock_id);
+        TracePrintf(1, "Acquired lock %d\n", lock->lock_id);
         return SUCCESS;
     }
     else if (lock->owner_pcb->pid == pcb->pid)

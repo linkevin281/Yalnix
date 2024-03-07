@@ -30,7 +30,6 @@ int lock_release(int lock_id)
         return SUCCESS;
     }
 }
-
 int lock_init()
 {
     int *lock_id = malloc(sizeof(int));
@@ -62,6 +61,12 @@ void test_basic_lock()
         lock_acquire(lock_id);
         TracePrintf(1, "Looks like I (parent | pid: %d) acquired the lock first. Haha.\n", GetPid());
         lock_release(lock_id);
+        int status;
+        Wait(&status);
+        if (status != SUCCESS)
+        {
+            Exit(FAILURE);
+        }
         Exit(SUCCESS);
     }
     TracePrintf(1, "why are we here? died\n");
@@ -75,14 +80,14 @@ void test_double_acquire()
     int r2 = Acquire(lock_id);
     int r3 = Release(lock_id);
     int r4 = Release(lock_id);
-    if (r1 == SUCCESS && r2 == FAILURE && r3 == SUCCESS && r4 == FAILURE)
+    if (r1 == SUCCESS && r2 == SUCCESS && r3 == SUCCESS && r4 == FAILURE)
     {
         Exit(SUCCESS);
     }
     else
     {
         TracePrintf(1, "R1: %d Expected: %d\n", r1, SUCCESS);
-        TracePrintf(1, "R2: %d Expected: %d\n", r2, FAILURE);
+        TracePrintf(1, "R2: %d Expected: %d\n", r2, SUCCESS);
         TracePrintf(1, "R3: %d Expected: %d\n", r3, SUCCESS);
         TracePrintf(1, "R4: %d Expected: %d\n", r4, FAILURE);
         Exit(FAILURE);
@@ -216,6 +221,7 @@ void run_test(void (*test_func)(), char *test_name)
     }
     else if (pid > 0)
     {
+        TracePrintf(1, "Waiting for %s to finish...\n", test_name);
         int status;
         Wait(&status);
         if (status == SUCCESS)

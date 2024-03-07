@@ -512,6 +512,11 @@ int Y_Delay(int num_ticks)
      * Add this PCB to delayqueue
      * [further logic is handled by a function that's called by our OS upon receiving TRAP_CLOCK]
      */
+    if(num_ticks < 0){
+        TracePrintf(1, "ERROR: number of ticks must be at least 0\n");
+        return ERROR;
+    }
+    
     TracePrintf(1, "SYSCALL: Y_Delay\n");
     current_process->delayed_until = clock_ticks + num_ticks;
     enqueueDelayQueue(delay_queue, current_process);
@@ -642,6 +647,11 @@ int Y_Pipeinit(int *pipe_idp)
      * 4. Fill kernel pipe array with pipe (maybe taken care of already by kernel?)
      * 5. Return 0
      */
+
+    if(getSize(empty_pipes) == 0){
+        TracePrintf(1, "Error - all pipes in use!\n");
+        return ERROR;
+    }
 
     // get next available pipe
     Node_t *pipe_holder = dequeue(empty_pipes);

@@ -114,7 +114,7 @@ int Y_Fork()
     child->delayed_until = current_process->delayed_until;
     // TODO:
     // Copy zombies
-    // Copy brk
+    child->brk = current_process->brk;
 
     // Add to Ready Queue
     enqueue(ready_queue, child);
@@ -438,7 +438,7 @@ int Y_Getpid()
      * Using curr_process variable in kernel, get the pcb of the current process
      * Return the pid of the current process from this pcb
      */
-    TracePrintf(1, "SYSCALL: Y_Getpid\n");
+TracePrintf(1, "SYSCALL: Y_Getpid\n");
     return current_process->pid;
 }
 

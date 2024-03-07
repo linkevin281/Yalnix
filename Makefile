@@ -19,7 +19,7 @@ K_INCS = ../lib/queue.h kernel.h syscalls.h trap.h globals.h
 U_SRC_DIR = ./test
 
 # What are the user c and include files?
-U_SRCS = init.c idle.c pid.c brk.c delay.c fork.c exec.c wait.c write_read.c bigstack.c forktest.c torture.c zero.c traps.c shell.c pipes.c locks.c
+U_SRCS = init.c idle.c pid.c brk.c delay.c fork.c exec.c wait.c write_read.c bigstack.c forktest.c torture.c zero.c traps.c shell.c pipes.c locks.c locks1.c
 U_INCS = ../src/syscalls.h
 
 

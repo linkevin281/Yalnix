@@ -72,6 +72,11 @@ void TrapKernel(UserContext *user_context)
         break;
     case YALNIX_PIPE_READ:
         r_value = Y_Piperead((int)user_context->regs[0], (void *)user_context->regs[1], (int)user_context->regs[2]);
+        break;
+    case YALNIX_LOCK_INIT:
+        TracePrintf(1, "TRAP LOCK_INIT REG; 0: %d\n", (int)user_context->regs[0]);
+        r_value = Y_LockInit((int)user_context->regs[0]);
+        break;
     case YALNIX_LOCK_ACQUIRE:
         TracePrintf(1, "TRAP LOCK_ACQUIRE REG; 0: %d\n", (int)user_context->regs[0]);
         r_value = Y_Acquire((int)user_context->regs[0]);

@@ -34,7 +34,12 @@ int lock_release(int lock_id)
 int lock_init()
 {
     int *lock_id = malloc(sizeof(int));
-    LockInit(lock_id);
+    int r = LockInit(lock_id);
+    if (r == -1)
+    {
+        TracePrintf(1, "No Locks Left\n");
+        return -1;
+    }
     TracePrintf(1, "Lock id: %d initalized\n", *lock_id);
     return *lock_id;
 }
@@ -97,7 +102,7 @@ void test_mutual_exclusion()
     int main_pid = Fork();
     if (main_pid == 0)
     {
-        int pid = Fork();  
+        int pid = Fork();
         if (pid == 0)
         {
             lock_acquire(lock_id);
@@ -117,7 +122,7 @@ void test_mutual_exclusion()
             lock_release(lock_id);
             for (int i = 0; i < 10; i++)
             {
-                TracePrintf(1, "END: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
+                TracePrintf(1, "END CHILD: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
             }
             Exit(SUCCESS);
         }
@@ -139,7 +144,20 @@ void test_mutual_exclusion()
                 arr[i] = 1;
             }
             lock_release(lock_id);
-            Exit(SUCCESS);
+            for (int i = 0; i < 10; i++)
+            {
+                TracePrintf(1, "END PARENT: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
+            }
+            int status;
+            Wait(&status);
+            if (status == SUCCESS)
+            {
+                Exit(SUCCESS);
+            }
+            else
+            {
+                Exit(FAILURE);
+            }
         }
     }
     if (main_pid > 0)
@@ -157,17 +175,12 @@ void test_mutual_exclusion()
                 {
                     TracePrintf(1, "Array is not consistent, someone wrote to it while the lock was LOCKED\n");
                     Exit(FAILURE);
-                    TracePrintf(1, "I'm going to die now\n");
                 }
+                TracePrintf(1, "END MAIN: Mem location of arr[%d]. Value: %d: %p\n", i, arr[i], &arr[i]);
             }
-
             if (first_element == 0)
             {
                 TracePrintf(1, "Looks like the child wrote to the array second. Good job!\n");
-            }
-            else
-            {
-                TracePrintf(1, "Looks like the parent wrote to the array second. Good job!\n");
             }
             Exit(SUCCESS);
         }
@@ -189,47 +202,6 @@ void test_fork_inheritance()
         Exit(SUCCESS);
     }
     Exit(FAILURE);
-}
-
-void test_lock_leaks()
-{
-    int pid = Fork();
-    if (pid == 0)
-    {
-        TracePrintf(1, "I'm the child, greedily consuming all locks now.\n");
-        int lock_id;
-        while ((lock_id = lock_init()) != -1)
-        {
-            continue;
-        }
-        TracePrintf(1, "Looks like I've consumed all the locks (Total: %d) muhahahahaha. I'm pausing.\n", lock_id + 1);
-        Pause();
-        TracePrintf(1, "I'm back (child)! Dying now\n");
-        Exit(SUCCESS);
-    }
-    else if (pid > 0)
-    {
-        TracePrintf(1, "I'm the parent, pausing to let the child consume all the locks\n");
-        Pause();
-        TracePrintf(1, "I'm the parent, trying to consume a lock now!");
-        int lock_id = lock_init();
-        if (lock_id != -1)
-        {
-            TracePrintf(1, "How did I get a lock? I'm a parent! I'm going to die now.\n");
-            Exit(FAILURE);
-        }
-        TracePrintf(1, "Looks like I didn't get a lock. Waiting for the child\n");
-        int status;
-        Wait(&status);
-        TracePrintf(1, "I'm back (parent)! Trying again\n");
-        lock_id = lock_init();
-        if (lock_id == -1)
-        {
-            TracePrintf(1, "Why are there no locks left? I'm going to die now.\n");
-            Exit(FAILURE);
-        }
-        Exit(SUCCESS);
-    }
 }
 
 void run_test(void (*test_func)(), char *test_name)
@@ -267,6 +239,7 @@ void main(void)
     run_test(test_mutual_exclusion, "Test 3: Mutual Exclusion");
     // What if we fork a process WITH a lock in hand?
     run_test(test_fork_inheritance, "Test 4: Fork Inheritance");
+    TracePrintf(1, "ENDING BRK: %p\n", sbrk(0));
     // What if a process dies with a lock in hand? Or multiple??
     // run_test(test_lock_leaks, "Test 5: Lock Leaks");
 }

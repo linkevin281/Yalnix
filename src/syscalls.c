@@ -239,9 +239,9 @@ int Y_Exit(int status)
 
     current_process->is_alive = 0;
 
-    // Free all locks
+    // Move all waiters to ready queue
     Node_t *node;
-    while ((node = dequeue(current_process->waiters)) != NULL)
+    while ((node = dequeue(current_process->inited_locks)) != NULL)
     {
         Lock_t *lock = (Lock_t *)node->data;
         releaseLock(lock, current_process);
@@ -828,9 +828,12 @@ int Y_Pipewrite(int pipe_id, void *buf, int len)
 int Y_LockInit(int *lock_idp)
 {
     TracePrintf(1, "SYSCALL: Y_LockInit\n");
+    TracePrintf(1, "Queue size: %d\n", empty_locks->size);
     Node_t *lock_node = dequeue(empty_locks);
+    TracePrintf(1, "Lock node: %p\n", lock_node);
     if (lock_node == NULL)
     {
+        TracePrintf(1, "No more locks available\n");
         return ERROR;
     }
     Lock_t *lock = lock_node->data;

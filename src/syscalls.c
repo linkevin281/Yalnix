@@ -289,24 +289,9 @@ int Y_Exit(int status)
             (curr_pipe->writer == current_process && curr_pipe->reader == idle_process))
         {
             // clean the relevant pipe
-            // add relevant pipe to empty pipes queue
             TracePrintf(1, "KILLING pipe %d", curr_pipe->id);
             int i = curr_pipe->id;
-            pipes[i].id = i;
-            pipes[i].read_pos = 0;
-            pipes[i].write_pos = 0;
-            pipes[i].exists = 0;
-            pipes[i].num_bytes_in_pipe = 0;
-            pipes[i].reader = NULL;
-            pipes[i].writer = NULL;
-            int *to_enqueue = malloc(sizeof(int));
-            memcpy(to_enqueue, &i, sizeof(int));
-            enqueue(empty_pipes, to_enqueue);
-            Queue_t *pq_1 = createQueue();
-            Queue_t *pq_2 = createQueue();
-            want_to_read_pipe[i] = pq_1;
-            want_to_write_pipe[i] = pq_2;
-            can_interact_with_pipe[i] = 1;
+            Y_Reclaim(i);
         }
 
         else if (curr_pipe->reader == current_process)
@@ -994,7 +979,22 @@ int Y_Reclaim(int id)
     }
     if (id < MAX_PIPES)
     {
-        // TODO CARTER
+    int i = id;
+    pipes[i].id = i;
+    pipes[i].read_pos = 0;
+    pipes[i].write_pos = 0;
+    pipes[i].exists = 0;
+    pipes[i].num_bytes_in_pipe = 0;
+    pipes[i].reader = NULL;
+    pipes[i].writer = NULL;
+    int *to_enqueue = malloc(sizeof(int));
+    memcpy(to_enqueue, &i, sizeof(int));
+    enqueue(empty_pipes, to_enqueue);
+    Queue_t *pq_1 = createQueue();
+    Queue_t *pq_2 = createQueue();
+    want_to_read_pipe[i] = pq_1;
+    want_to_write_pipe[i] = pq_2;
+    can_interact_with_pipe[i] = 1;
     }
     else if (id < MAX_PIPES + NUM_LOCKS)
     {

@@ -172,7 +172,7 @@ void main(void)
         char* parent_str_yay = "doge";
         PipeWrite(*pipe_holder, parent_str_yay, strlen(parent_str_yay) + 1);
         TracePrintf(1, "I am the parent, and just wrote to the pipe so my children can try reading...\n");
-        Delay(10);
+        Delay(5);
         TracePrintf(1, "I am the parent, and I will now write to the pipe so my second waiting child can be done waiting...\n");
         char* parent_str_yiy = "boge";
         int len = PipeWrite(*pipe_holder, parent_str_yiy, 5);
@@ -183,24 +183,4 @@ void main(void)
             TracePrintf(1, "FOR i of %d we are done waiting\n", i);
         }
         Exit(0);
-
-
-        // // testing reuse of pipes
-        // char* to_add = "a";
-        // for(int i = 0; i < 120; i++){
-        //     int* pipe_holder_1 = (int*) malloc(sizeof(int));
-        //     int temp = PipeInit(pipe_holder_1);
-        //     char* str = malloc(2);
-        //     TracePrintf(1, "In iteration %d\n", i);
-        //     memcpy(str, to_add, 2);
-        //     int pid = Fork();
-        //     if(pid == 0){
-        //         PipeWrite(*pipe_holder_1, str, strlen(str) + 1);
-        //         free(str);
-        //         Exit(0);
-        //     }
-        //     char holder[2];
-        //     PipeRead(*pipe_holder_1, holder, 2);
-        //     TracePrintf(1, "On iteration %d, just did my read\n", i);
-        // }
 }
